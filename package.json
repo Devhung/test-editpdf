@@ -1,8 +1,8 @@
 {
   "name": "pdf-editor",
   "version": "1.0.0",
-  "author": "ShizukuIchi <shizukuichi@gmail.com>",
-  "homepage": "https://pdf-editor.now.sh",
+  "author": "BelleSoft",
+  "homepage": "",
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c -w",
