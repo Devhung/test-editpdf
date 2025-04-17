@@ -1,24 +1,67 @@
-# PDF Editor
+# PDF Editor Microsite
 
-No install. No server. ¯\\\_(ツ)\_/¯ https://pdf-editor.now.sh
-![It just works!](https://i.imgur.com/m3weLXQ.gif)
-
-## How to use pdf-editor?
-
-1. Click `Choose PDF` to upload a `.pdf` file.
-2. Add images, signatures, text to your PDF.
-3. Click `Save`.
-4. That's it! All is done **in your browser**.
+A web-based PDF editor that allows users to add text, images, drawings, and patient information to PDF documents.
 
 ## Features
 
-- Resize and move everything.
-- Add signatures.
-- Adjust line height, font size, font family.
-- Mobile friendly.
-- Drag and drop to upload your PDF.
-- 支援中文（標楷體）。
+- 📄 PDF Upload and Viewing
+- 📝 Text Annotation
+- 🖼️ Image Insertion
+- ✏️ Freehand Drawing
+- 👤 Patient Information Integration
+- 💾 PDF Save and Export
 
----
 
-LICENSE MIT © 2020 ShizukuIchi
+## Environment Setup
+- Node.js v18.16.0
+
+Environment Configuration
+- Copy the example environment file:
+```bash
+cp .env.example .env
+```
+- Configure the environment variables in `.env`
+
+## Installation
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+```
+
+## Deployment Environments
+
+| Environment | URL |
+|------------|-----|
+| Production | https://pdf-ms.belle.ai |
+| Staging | https://pdf-stag-ms.belle.ai |
+| Testing | https://pdf-test-ms.belle.ai |
+
+## Usage
+
+1. **Upload PDF**
+   - Click "Choose PDF" or drag & drop a PDF file
+
+2. **Add Content**
+   - Text: Click the text tool to add text fields
+   - Images: Use the image tool to insert images
+   - Drawing: Use the drawing tool for freehand annotations
+   - Patient Info: Click the patient icon to add patient information
+
+3. **Save Changes**
+   - Click "Save" to export the modified PDF
+
+## Tech Stack
+- Svelte
+- Tailwind CSS
+- PDF.js
+- JavaScript Canvas API
+
+
+

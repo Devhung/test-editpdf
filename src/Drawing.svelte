@@ -9,6 +9,7 @@
   export let y;
   export let pageScale = 1;
   export let path;
+  export let isActive = false;
   const dispatch = createEventDispatcher();
   let startX;
   let startY;
@@ -67,6 +68,9 @@
     operation = "";
   }
   function handlePanStart(event) {
+    dispatch('activate');
+    if (!isActive) return;
+    
     startX = event.detail.x;
     startY = event.detail.y;
     if (event.detail.target === event.currentTarget) {
@@ -97,25 +101,29 @@
     on:panstart={handlePanStart}
     on:panmove={handlePanMove}
     on:panend={handlePanEnd}
-    class="absolute w-full h-full cursor-grab border border-gray-400
+    class="absolute w-full h-full border border-gray-400
     border-dashed"
     class:cursor-grabbing={operation === 'move'}
-    class:operation>
-    <div
-      data-direction="left-top"
-      class="absolute left-0 top-0 w-10 h-10 bg-green-400 rounded-full
-      cursor-nwse-resize transform -translate-x-1/2 -translate-y-1/2 md:scale-25" />
-    <div
-      data-direction="right-bottom"
-      class="absolute right-0 bottom-0 w-10 h-10 bg-green-400 rounded-full
-      cursor-nwse-resize transform translate-x-1/2 translate-y-1/2 md:scale-25" />
+    class:operation={isActive}>
+    {#if isActive}
+      <div
+        data-direction="left-top"
+        class="absolute left-0 top-0 w-4 h-4 md:w-10 md:h-10 bg-blue-300 rounded-full
+        cursor-nwse-resize transform -translate-x-1/2 -translate-y-1/2 md:scale-25" />
+      <div
+        data-direction="right-bottom"
+        class="absolute right-0 bottom-0 w-4 h-4 md:w-10 md:h-10 bg-blue-300 rounded-full
+        cursor-nwse-resize transform translate-x-1/2 translate-y-1/2 md:scale-25" />
+    {/if}
   </div>
-  <div
-    on:click={onDelete}
-    class="absolute left-0 top-0 right-0 w-12 h-12 m-auto rounded-full bg-white
-    cursor-pointer transform -translate-y-1/2 md:scale-25">
-    <img class="w-full h-full" src="/delete.svg" alt="delete object" />
-  </div>
+  {#if isActive}
+    <div
+      on:click={onDelete}
+      class="absolute left-0 top-0 right-0 w-5 h-5 md:w-12 md:h-12 m-auto rounded-full bg-white
+      cursor-pointer transform -translate-y-1/2 md:scale-25">
+      <img class="w-full h-full" src="/delete.svg" alt="delete object" />
+    </div>
+  {/if}
   <svg bind:this={svg} width="100%" height="100%">
     <path
       stroke-width="5"

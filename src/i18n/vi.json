@@ -1,0 +1,10 @@
+{
+    "btnChoosePDF": "Chọn PDF",
+    "btnSave": "Lưu",
+    "btnSaving": "Đang lưu",
+    "btnCreateNewPatient": "Tạo bệnh nhân mới",
+    "lblFullName": "Họ và tên",
+    "lblDateOfBirth": "Ngày sinh",
+    "lblDragHere": "Kéo thả vào đây",
+    "txtCreateNew": "Tạo mới"
+} 

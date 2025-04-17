@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,40 +11,133 @@
             height: 90vh;
             border: none;
         }
+
         .controls {
             margin: 10px 0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .tool-controls {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+
+        .tool-controls label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .language-select {
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            margin-left: auto;
         }
     </style>
 </head>
+
 <body>
     <div class="controls">
         <input type="file" id="pdf-input" accept="application/pdf" />
         <input type="file" id="image-input" accept="image/*" />
-        <button id="save-btn">Save PDF</button>
+        <button id="save-btn" data-i18n="savePDF">Save PDF</button>
+        <select class="language-select" id="language-select">
+            <option value="en">English</option>
+            <option value="vi">Tiếng Việt</option>
+        </select>
     </div>
-    
-    <iframe id="pdf-editor-container" src="https://test-editpdf.vercel.app"></iframe>
+
+    <div class="tool-controls">
+        <label>
+            <input type="checkbox" id="show-choose-pdf">
+            <span data-i18n="showChoosePDF">Show Choose PDF</span>
+        </label>
+        <label>
+            <input type="checkbox" id="show-add-image" checked>
+            <span data-i18n="showAddImage">Show Add Image</span>
+        </label>
+        <label>
+            <input type="checkbox" id="show-add-text" checked>
+            <span data-i18n="showAddText">Show Add Text</span>
+        </label>
+        <label>
+            <input type="checkbox" id="show-add-drawing" checked>
+            <span data-i18n="showAddDrawing">Show Add Drawing</span>
+        </label>
+        <label>
+            <input type="checkbox" id="show-save-pdf" checked>
+            <span data-i18n="showSavePDF">Show Save PDF</span>
+        </label>
+    </div>
+
+    <iframe id="pdf-editor-container" src="http://localhost:5000"></iframe>
 
     <script>
+        let currentLanguage = 'en';
         let editorReady = false;
         const editor = document.getElementById('pdf-editor-container');
         const pdfInput = document.getElementById('pdf-input');
         const imageInput = document.getElementById('image-input');
         const saveBtn = document.getElementById('save-btn');
+        const languageSelect = document.getElementById('language-select');
+
+        // Tool visibility controls
+        const toolCheckboxes = {
+            'show-choose-pdf': 'choosePDF',
+            'show-add-image': 'addImage',
+            'show-add-text': 'addText',
+            'show-add-drawing': 'addDrawing',
+            'show-save-pdf': 'savePDF'
+        };
+
+        // Initialize tool visibility state
+        let showTools = {
+            choosePDF: false,
+            addImage: true,
+            addText: true,
+            addDrawing: true,
+            savePDF: true,
+        };
+
+        // Function to update translations
+        function updateTranslations(lang) {
+            // Update iframe language
+            if (editorReady) {
+                editor.contentWindow.postMessage({
+                    type: 'LANGUAGE_CHANGE',
+                    data: lang
+                }, '*');
+            }
+        }
+
+        // Handle language change
+        languageSelect.addEventListener('change', (e) => {
+            updateTranslations(e.target.value);
+        });
 
         // Listen for messages from the editor
         window.addEventListener('message', (event) => {
             // Verify origin in production
             // if (event.origin !== "YOUR_EDITOR_ORIGIN") return;
-            
+
             const { type, data } = event.data;
-            
-            switch(type) {
+
+            switch (type) {
                 case 'EDITOR_READY':
                     editorReady = true;
                     console.log('Editor is ready');
+                    // Update tool visibility when editor is ready
+                    updateToolVisibility();
+                    // Set initial language
+                    updateTranslations(currentLanguage);
                     break;
-                    
+
                 case 'PDF_SAVED':
                     if (data instanceof Blob) {
                         // Create download link for the saved PDF
@@ -65,7 +159,7 @@
             const file = e.target.files[0];
             if (file && editorReady) {
                 editor.contentWindow.postMessage({
-                    type: 'LOAD_PDF',
+                    type: 'PDF_LOAD',
                     data: file
                 }, '*');
             }
@@ -76,7 +170,7 @@
             const file = e.target.files[0];
             if (file && editorReady) {
                 editor.contentWindow.postMessage({
-                    type: 'ADD_IMAGE',
+                    type: 'IMAGE_ADD',
                     data: file
                 }, '*');
             }
@@ -86,10 +180,42 @@
         saveBtn.addEventListener('click', () => {
             if (editorReady) {
                 editor.contentWindow.postMessage({
-                    type: 'SAVE_PDF'
+                    type: 'PDF_SAVE'
                 }, '*');
             }
         });
+
+        // Handle tool visibility checkbox changes
+        Object.keys(toolCheckboxes).forEach(checkboxId => {
+            const checkbox = document.getElementById(checkboxId);
+            checkbox.addEventListener('change', () => {
+                updateToolVisibility();
+            });
+        });
+
+        // Function to update tool visibility
+        function updateToolVisibility() {
+            if (!editorReady) return;
+
+            // Get current visibility state from checkboxes
+            const newShowTools = {};
+            Object.entries(toolCheckboxes).forEach(([checkboxId, toolKey]) => {
+                newShowTools[toolKey] = document.getElementById(checkboxId).checked;
+            });
+
+            // Send visibility update to editor
+            editor.contentWindow.postMessage({
+                type: 'TOOLS_VISIBILITY_UPDATE',
+                data: newShowTools
+            }, '*');
+
+            // Update local state
+            showTools = newShowTools;
+        }
+
+        // Initialize translations
+        updateTranslations(currentLanguage);
     </script>
 </body>
-</html> 
+
+</html>

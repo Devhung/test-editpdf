@@ -1,0 +1,10 @@
+{
+    "btnChoosePDF": "PDF auswählen",
+    "btnSave": "Speichern",
+    "btnSaving": "Speichern...",
+    "btnCreateNewPatient": "Neuen Patienten erstellen",
+    "lblFullName": "Vollständiger Name",
+    "lblDateOfBirth": "Geburtsdatum",
+    "lblDragHere": "Hier etwas ablegen",
+    "txtCreateNew": "Neu erstellen"
+} 

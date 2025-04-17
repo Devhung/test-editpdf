@@ -12,6 +12,7 @@
   export let y;
   export let fontFamily;
   export let pageScale = 1;
+  export let isActive = false;
   const Families = Object.keys(Fonts);
   const dispatch = createEventDispatcher();
   let startX;
@@ -41,11 +42,16 @@
     operation = "";
   }
   function handlePanStart(event) {
+    dispatch('activate');
+    if (!isActive) return;
+    
     startX = event.detail.x;
     startY = event.detail.y;
     operation = "move";
   }
   function onFocus() {
+    dispatch('activate');
+    if (!isActive) return;
     operation = "edit";
   }
   async function onBlur() {
@@ -164,7 +170,7 @@
 </style>
 
 <svelte:options immutable={true} />
-{#if operation}
+{#if operation && isActive}
   <Toolbar>
     <div
       use:tapout
@@ -236,11 +242,11 @@
     on:panstart={handlePanStart}
     on:panmove={handlePanMove}
     on:panend={handlePanEnd}
-    class="absolute w-full h-full cursor-grab border border-dotted
+    class="absolute w-full h-full border border-dotted
     border-gray-500"
     class:cursor-grab={!operation}
     class:cursor-grabbing={operation === 'move'}
-    class:editing={['edit', 'tool'].includes(operation)} />
+    class:editing={isActive && ['edit', 'tool'].includes(operation)} />
   <div
     bind:this={editable}
     on:focus={onFocus}

@@ -7,6 +7,7 @@ import { terser } from "rollup-plugin-terser";
 import sveltePreprocess from "svelte-preprocess";
 import copy from "rollup-plugin-copy";
 import cleaner from 'rollup-plugin-cleaner';
+import json from '@rollup/plugin-json';
 
 const production = !process.env.ROLLUP_WATCH;
 const timestamp = new Date().getTime();
@@ -54,6 +55,7 @@ export default {
       dedupe: ["svelte"],
     }),
     commonjs(),
+    json(),
     !production && serve(),
     !production && livereload("build"),
     production && terser(),
