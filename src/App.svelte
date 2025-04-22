@@ -62,7 +62,7 @@
         showInfo: true,
         allowCreate: true,
       },
-      allowDropFile: true,
+      allowDropFile: false,
     };
 
     // Add patient info states

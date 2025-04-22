@@ -33,6 +33,13 @@ npm run dev
 
 # Build for production
 npm run build
+
+# Build for Staging
+npm run build:staging
+
+# Build for Testing
+npm run build:testing
+
 ```
 
 ## Deployment Environments

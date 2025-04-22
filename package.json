@@ -5,6 +5,8 @@
   "homepage": "",
   "scripts": {
     "build": "rollup -c",
+    "build:staging": "rollup -c",
+    "build:testing": "rollup -c",
     "dev": "rollup -c -w",
     "start": "sirv build"
   },
