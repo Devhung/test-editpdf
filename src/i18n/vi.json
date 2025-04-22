@@ -6,5 +6,9 @@
     "lblFullName": "Họ và tên",
     "lblDateOfBirth": "Ngày sinh",
     "lblDragHere": "Kéo thả vào đây",
-    "txtCreateNew": "Tạo mới"
-} 
+    "txtCreateNew": "Tạo mới",
+    "msgNoFilesFound": "Không tìm thấy tệp",
+    "lblLoading": "Đang tải...",
+    "btnCancel": "Hủy bỏ",
+    "btnDone": "Hoàn tất"
+}   

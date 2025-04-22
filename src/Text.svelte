@@ -100,9 +100,19 @@
   async function onBlur() {
     if (operation !== "edit" || operation === "tool") return;
     editable.blur();
-    sanitize();
+    window.getSelection().removeAllRanges();
+    
+    // Check if text field is empty
+    const lines = extractLines();
+    const hasContent = lines.some(line => line.trim().length > 0);
+    
+    if (!hasContent) {
+      dispatch("delete");
+      return;
+    }
+
     dispatch("update", {
-      lines: extractLines(),
+      lines: lines,
       width: editable.clientWidth,
     });
     operation = "";

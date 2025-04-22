@@ -6,5 +6,9 @@
     "lblFullName": "Nombre completo",
     "lblDateOfBirth": "Fecha de nacimiento",
     "lblDragHere": "Arrastra algo aquí",
-    "txtCreateNew": "Crear nuevo"
+    "txtCreateNew": "Crear nuevo",
+    "msgNoFilesFound": "No se encontraron archivos",
+    "btnCancel": "Cancelar",
+    "lblLoading": "Cargando...",
+    "btnDone": "Listo"
 } 

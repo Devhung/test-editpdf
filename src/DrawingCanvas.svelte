@@ -2,6 +2,8 @@
   import { createEventDispatcher } from "svelte";
   import { pannable } from "./utils/pannable.js";
   const dispatch = createEventDispatcher();
+  import { _, changeLanguage } from "./i18n";
+  
   let canvas;
   let x = 0;
   let y = 0;
@@ -69,15 +71,15 @@
   <div class="absolute right-0 bottom-0 mr-4 mb-4 flex">
     <button
       on:click={cancel}
-      class=" w-24 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-4
-      rounded mr-4">
-      Cancel
+      class="w-[4rem] bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-4
+      rounded mr-4 focus:outline-none">
+      {$_("btnCancel")}
     </button>
     <button
       on:click={finish}
-      class="w-24 bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-4
-      rounded">
-      Done
+      class="w-[4rem] bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-4
+      rounded focus:outline-none">
+      {$_("btnDone")}
     </button>
   </div>
   <svg class="w-full h-full pointer-events-none">

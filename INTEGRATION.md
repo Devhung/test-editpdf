@@ -30,9 +30,11 @@ Message types được đặt theo cấu trúc: `[OBJECT]_[ACTION]` hoặc `[OBJ
 | PDF_SAVE | Yêu cầu lưu PDF | None | Parent → Editor |
 | PDF_SAVED | PDF đã được lưu | Blob hoặc Base64 string | Editor → Parent |
 | IMAGE_ADD | Thêm hình ảnh vào editor | File hoặc Uint8Array | Parent → Editor |
-| TOOLS_VISIBILITY_UPDATE | Cập nhật hiển thị tools và tính năng | { choosePDF, addImage, addText, addDrawing, addDate, savePDF, patient } | Parent → Editor |
+| TOOLS_VISIBILITY_UPDATE | Cập nhật hiển thị tools và tính năng | { choosePDF, addImage, addText, addDrawing, addDate, savePDF, patient, allowDropFile } | Parent → Editor |
 | PATIENT_INFO_UPDATE | Cập nhật thông tin bệnh nhân | { fullName, dateOfBirth } | Parent → Editor |
 | LANGUAGE_CHANGE | Thay đổi ngôn ngữ | string | Parent → Editor |
+| PATIENT_CREATE | Yêu cầu tạo bệnh nhân mới | None | Editor → Parent |
+| EDITOR_CANCEL | Yêu cầu hủy chỉnh sửa | None | Editor → Parent |
 
 ### 1.4. Chi tiết Type
 
@@ -61,7 +63,8 @@ Khi editor khởi tạo xong và sẵn sàng nhận lệnh, nó sẽ gửi messa
       patient: {
         showInfo: true,
         allowCreate: true
-      }
+      },
+      allowDropFile: false // Cho phép kéo thả file PDF
     },
     patientInfo: {
       fullName: 'John Doe',
@@ -97,11 +100,12 @@ Dùng để khởi tạo editor với dữ liệu ban đầu. Message này thư�
         timezone: number,    // Múi giờ (UTC offset theo giờ, ví dụ: 7 cho UTC+7)
         defaultFormat: string // Định dạng mặc định được chọn (tùy chọn)
       },
-      savePDF: boolean,
+      savePDF: true,      // Hiển thị nút Save (nút sẽ tự động disable nếu chưa có nội dung chỉnh sửa)
       patient: {
         showInfo: boolean,    // Hiển thị thông tin bệnh nhân
         allowCreate: boolean  // Cho phép tạo bệnh nhân mới
-      }
+      },
+      allowDropFile: boolean  // Cho phép kéo thả file PDF
     },
     patientInfo: {          // Thông tin bệnh nhân
       fullName: string,
@@ -145,7 +149,13 @@ Dùng để tải một file PDF vào editor. File có thể được gửi dư�
 ```
 
 #### 1.4.4. PDF_SAVE
-Yêu cầu editor lưu PDF hiện tại. Editor sẽ trả về file PDF đã được chỉnh sửa thông qua message `PDF_SAVED`.
+Yêu cầu editor lưu PDF hiện tại. Editor sẽ trả về file PDF đã được chỉnh sửa thông qua message `PDF_SAVED`. 
+
+Lưu ý: Nút Save sẽ bị disable và hiển thị mờ (opacity: 0.5) trong các trường hợp sau:
+- Chưa có bất kỳ nội dung nào được thêm vào (text, drawing, image, date)
+- Chưa có sự thay đổi nào trên tài liệu
+
+Nút Save chỉ được enable khi có ít nhất một đối tượng được thêm vào tài liệu.
 
 ```javascript
 {
@@ -198,7 +208,8 @@ Cập nhật trạng thái hiển thị của các công cụ và tính năng tr
     patient: {
       showInfo: true,      // Hiển thị thông tin bệnh nhân
       allowCreate: true    // Cho phép tạo bệnh nhân mới
-    }
+    },
+    allowDropFile: false   // Cho phép kéo thả file PDF
   }
 }
 ```
@@ -226,6 +237,24 @@ Thay đổi ngôn ngữ hiển thị của editor.
 }
 ```
 
+#### 1.4.10. PATIENT_CREATE
+Message được gửi từ editor khi người dùng yêu cầu tạo bệnh nhân mới.
+
+```javascript
+{
+  type: 'PATIENT_CREATE'
+}
+```
+
+#### 1.4.11. EDITOR_CANCEL
+Message được gửi từ editor khi người dùng nhấn nút Cancel để hủy việc chỉnh sửa.
+
+```javascript
+{
+  type: 'EDITOR_CANCEL'
+}
+```
+
 ## 2. Tích hợp với ReactJS (iframe)
 
 ### 2.1. Cài đặt
@@ -237,7 +266,7 @@ Không cần cài đặt thêm thư viện, chúng ta sẽ sử dụng iframe HT
 ```jsx
 import React, { useEffect, useRef, useState } from 'react';
 
-const PDFEditor = ({ initialLanguage = 'vi' }) => {
+const PDFEditor = ({ initialLanguage = 'vi', onCancel }) => {
   const editorRef = useRef(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [currentLanguage, setCurrentLanguage] = useState(initialLanguage);
@@ -278,7 +307,8 @@ const PDFEditor = ({ initialLanguage = 'vi' }) => {
                   patient: {
                     showInfo: true,
                     allowCreate: true
-                  }
+                  },
+                  allowDropFile: true
                 },
                 patientInfo: {
                   fullName: '',
@@ -295,12 +325,22 @@ const PDFEditor = ({ initialLanguage = 'vi' }) => {
             handleSavedPDF(data);
           }
           break;
+
+        case 'PATIENT_CREATE':
+          handleCreatePatient();
+          break;
+
+        case 'EDITOR_CANCEL':
+          if (onCancel) {
+            onCancel();
+          }
+          break;
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [currentLanguage]);
+  }, [currentLanguage, onCancel]);
 
   const handleSavedPDF = (blob) => {
     // Tạo URL và tải xuống PDF
@@ -312,6 +352,11 @@ const PDFEditor = ({ initialLanguage = 'vi' }) => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const handleCreatePatient = () => {
+    // Xử lý tạo bệnh nhân mới
+    console.log('Handle create new patient');
   };
 
   const changeLanguage = (newLanguage) => {
@@ -353,10 +398,15 @@ export default PDFEditor;
 import PDFEditor from './components/PDFEditor';
 
 function App() {
+  const handleCancel = () => {
+    console.log('Editor cancelled');
+    // Xử lý khi người dùng hủy chỉnh sửa
+  };
+
   return (
     <div>
       <h1>PDF Editor Integration</h1>
-      <PDFEditor initialLanguage="vi" />
+      <PDFEditor initialLanguage="vi" onCancel={handleCancel} />
     </div>
   );
 }
@@ -381,7 +431,7 @@ import { WebView } from 'react-native-webview';
 import * as FileSystem from 'react-native-fs';
 import Share from 'react-native-share';
 
-const PDFEditorScreen = ({ initialLanguage = 'vi' }) => {
+const PDFEditorScreen = ({ initialLanguage = 'vi', onCancel }) => {
   const webViewRef = useRef(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [currentLanguage, setCurrentLanguage] = useState(initialLanguage);
@@ -417,7 +467,8 @@ const PDFEditorScreen = ({ initialLanguage = 'vi' }) => {
               patient: {
                 showInfo: true,
                 allowCreate: true
-              }
+              },
+              allowDropFile: false // Disable drag & drop on mobile
             },
             patientInfo: {
               fullName: '',
@@ -434,6 +485,16 @@ const PDFEditorScreen = ({ initialLanguage = 'vi' }) => {
         
       case 'PDF_SAVED':
         handleSavedPDF(data);
+        break;
+
+      case 'PATIENT_CREATE':
+        handleCreatePatient();
+        break;
+
+      case 'EDITOR_CANCEL':
+        if (onCancel) {
+          onCancel();
+        }
         break;
     }
   };
@@ -458,6 +519,11 @@ const PDFEditorScreen = ({ initialLanguage = 'vi' }) => {
     } catch (error) {
       console.error('Error handling PDF:', error);
     }
+  };
+
+  // Xử lý tạo bệnh nhân mới
+  const handleCreatePatient = () => {
+    console.log('Handle create new patient');
   };
 
   // Thay đổi ngôn ngữ
@@ -522,6 +588,11 @@ export default PDFEditorScreen;
 import PDFEditorScreen from './screens/PDFEditorScreen';
 
 function App() {
+  const handleCancel = () => {
+    console.log('Editor cancelled');
+    // Xử lý khi người dùng hủy chỉnh sửa
+  };
+
   return (
     <NavigationContainer>
       <Stack.Navigator>
@@ -529,7 +600,7 @@ function App() {
           name="PDFEditor" 
           component={PDFEditorScreen}
           options={{ title: 'PDF Editor' }}
-          initialParams={{ initialLanguage: 'vi' }}
+          initialParams={{ initialLanguage: 'vi', onCancel: handleCancel }}
         />
       </Stack.Navigator>
     </NavigationContainer>
