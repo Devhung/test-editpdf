@@ -22,6 +22,7 @@
   let pdfName = "";
   let pages = [];
   let pagesScale = [];
+  let pagesDimensions = [];
   let allObjects = [];
   let currentFont = "Times-Roman";
   let focusId = null;
@@ -30,28 +31,58 @@
   let addingDrawing = false;
   let activeObjectId = null;
 
+  // Custom date formats (can be overridden from parent)
+  let defaultDateTimeFormats = [
+    { label: "YYYY-MM-DD HH:mm", value: "yyyy-mm-dd hh:mm" },
+    { label: "YYYY/MM/DD HH:mm", value: "yyyy/mm/dd hh:mm" },
+    { label: "MM/DD/YYYY", value: "mm/dd/yyyy" },
+    { label: "MM-DD-YYYY", value: "mm-dd-yyyy" },
+    { label: "DD-MM-YYYY", value: "dd-mm-yyyy" },
+    { label: "DD/MM/YYYY", value: "dd/mm/yyyy" },
+    { label: "YYYY-MM-DD", value: "yyyy-mm-dd" },
+    { label: "YYYY/MM/DD", value: "yyyy/mm/dd" },
+  ];
+
   // Tool visibility control
   let showTools = {
-    choosePDF: true,
-    addImage: true,
+    choosePDF: false,
+    addImage: false,
     addText: true,
     addDrawing: true,
+    addDate: true,
     savePDF: true,
     patient: {
       showInfo: true, // Controls whether to show patient info section
       allowCreate: true, // Controls whether to allow creating new patients
+      
     },
   };
 
   // Add patient info states
   let showPatientDropdown = false;
   let patientInfo = {
-    dateOfBirth: "1990-01-01",
-    fullName: "John Doe",
-  }; // This will store patient data when available
+    dateOfBirth: "",
+    fullName: "",
+  };
+
+  // Function to safely get patient info value
+  function getPatientValue(key) {
+    return patientInfo && patientInfo[key] ? patientInfo[key] : "";
+  }
+
+  // Function to handle patient text field addition
+  function addPatientTextField(key) {
+    if (selectedPageIndex >= 0) {
+      const value = getPatientValue(key);
+      addTextField(value);
+      showPatientDropdown = false;
+    }
+  }
 
   // Function to toggle patient dropdown
   function togglePatientDropdown() {
+    if (!patientInfo) return;
+    if (selectedPageIndex < 0) return;
     showPatientDropdown = !showPatientDropdown;
   }
 
@@ -81,10 +112,16 @@
     showPatientDropdown = false;
   }
 
+  // Function to handle page selection
+  function selectPage(index) {
+    if (typeof index === "number") {
+      selectedPageIndex = index;
+    }
+  }
+
   // Handle incoming messages from parent window/WebView
   function handleMessage(event) {
-    // Verify origin for security if needed
-    // if (event.origin !== "YOUR_ALLOWED_ORIGIN") return;
+    if (!event.data) return;
 
     const { type, data } = event.data;
 
@@ -93,9 +130,7 @@
         // Handle initialization data
         if (data) {
           // Set title/filename if provided
-          if (data.title) {
-            pdfName = data.title;
-          }
+          pdfName = data.title || "";
 
           // Set PDF file if provided
           if (data.pdfFile instanceof Blob) {
@@ -188,32 +223,59 @@
 
   async function onUploadPDF(e) {
     const files = e.target.files || (e.dataTransfer && e.dataTransfer.files);
+    if (!files || !files.length) return;
+
     const file = files[0];
     if (!file || file.type !== "application/pdf") return;
-    selectedPageIndex = -1;
+
+    selectPage(-1); // Reset page selection
     try {
       await addPDF(file);
-      selectedPageIndex = 0;
     } catch (e) {
-      console.log(e);
+      console.error("Error uploading PDF:", e);
     }
   }
+
   async function addPDF(file) {
+    if (!file) return;
+
     try {
       const pdf = await readAsPDF(file);
-      pdfName = file.name;
+      if (!pdf) throw new Error("Invalid PDF file");
+
       pdfFile = file;
+      pdfName = file.name ? file.name : "";
       const numPages = pdf.numPages;
-      pages = Array(numPages)
+
+      // Initialize arrays
+      pagesDimensions = [];
+      allObjects = Array(numPages)
         .fill()
-        .map((_, i) => pdf.getPage(i + 1));
-      allObjects = pages.map(() => []);
+        .map(() => []);
       pagesScale = Array(numPages).fill(1);
+
+      // Load pages and store dimensions
+      pages = await Promise.all(
+        Array(numPages)
+          .fill()
+          .map(async (_, i) => {
+            const page = await pdf.getPage(i + 1);
+            const viewport = page.getViewport({ scale: 1 });
+            pagesDimensions[i] = {
+              width: viewport.width,
+              height: viewport.height,
+            };
+            return page;
+          })
+      );
+
+      selectPage(0);
     } catch (e) {
-      console.log("Failed to add pdf.");
+      console.error("Failed to add pdf:", e);
       throw e;
     }
   }
+
   async function onUploadImage(e) {
     const file = e.target.files[0];
     if (file && selectedPageIndex >= 0) {
@@ -221,6 +283,7 @@
     }
     e.target.value = null;
   }
+
   async function addImage(file) {
     try {
       // get dataURL to prevent canvas from tainted
@@ -245,11 +308,13 @@
       console.log(`Fail to add image.`, e);
     }
   }
+
   function onAddTextField() {
     if (selectedPageIndex >= 0) {
       addTextField();
     }
   }
+
   function addTextField(text = "New Text Field") {
     const id = genID();
     fetchFont(currentFont);
@@ -268,10 +333,12 @@
       pIndex === selectedPageIndex ? [...objects, object] : objects
     );
   }
+
   function addPatientInfoField(info) {
     const text = `Patient: ${info.fullName}\nDOB: ${info.dateOfBirth}`;
     addTextField(text);
   }
+
   function handleDrop(e) {
     try {
       const data = JSON.parse(e.dataTransfer.getData("text/plain"));
@@ -290,11 +357,13 @@
       console.log("Invalid drop data");
     }
   }
+
   function onAddDrawing() {
     if (selectedPageIndex >= 0) {
       addingDrawing = true;
     }
   }
+
   function addDrawing(originWidth, originHeight, path, scale = 1) {
     const id = genID();
     const object = {
@@ -311,24 +380,71 @@
     allObjects = allObjects.map((objects, pIndex) =>
       pIndex === selectedPageIndex ? [...objects, object] : objects
     );
+    activeObjectId = id;
   }
+
   function selectFontFamily(event) {
     const name = event.detail.name;
     fetchFont(name);
     currentFont = name;
   }
-  function selectPage(index) {
-    selectedPageIndex = index;
-  }
-  function updateObject(objectId, payload) {
+
+  function moveObjectToPage(objectId, fromPageIndex, toPageIndex, y = 0) {
+    const object = allObjects[fromPageIndex].find(obj => obj.id === objectId);
+    if (!object) return;
+
+    // Remove from old page
     allObjects = allObjects.map((objects, pIndex) =>
-      pIndex == selectedPageIndex
-        ? objects.map((object) =>
+      pIndex === fromPageIndex
+        ? objects.filter(obj => obj.id !== objectId)
+        : objects
+    );
+
+    // Add to new page with updated y position
+    const updatedObject = { ...object, y };
+    allObjects = allObjects.map((objects, pIndex) =>
+      pIndex === toPageIndex
+        ? [...objects, updatedObject]
+        : objects
+    );
+
+    // Update selected page
+    selectedPageIndex = toPageIndex;
+  }
+
+  function updateObject(objectId, payload) {
+    const currentPage = selectedPageIndex;
+    const object = allObjects[currentPage].find(obj => obj.id === objectId);
+    if (!object) return;
+
+    // Check if object is being dragged beyond page boundaries
+    if (payload.y !== undefined) {
+      const objectHeight = object.height || object.lineHeight * object.size || (object.width / (object.originWidth / object.originHeight)) || 0;
+      
+      // If dragged above current page
+      if (payload.y < 0 && currentPage > 0) {
+        const newY = pagesDimensions[currentPage - 1].height - objectHeight;
+        moveObjectToPage(objectId, currentPage, currentPage - 1, newY);
+        return;
+      }
+      
+      // If dragged below current page
+      if (payload.y + objectHeight > pagesDimensions[currentPage].height && currentPage < pages.length - 1) {
+        moveObjectToPage(objectId, currentPage, currentPage + 1, 0);
+        return;
+      }
+    }
+
+    // Normal update within page
+    allObjects = allObjects.map((objects, pIndex) =>
+      pIndex === currentPage
+        ? objects.map(object =>
             object.id === objectId ? { ...object, ...payload } : object
           )
         : objects
     );
   }
+
   function deleteObject(objectId) {
     allObjects = allObjects.map((objects, pIndex) =>
       pIndex == selectedPageIndex
@@ -336,15 +452,19 @@
         : objects
     );
   }
+
   function handleObjectActivation(id) {
     activeObjectId = id;
   }
+
   function handleBackgroundClick(e) {
     if (e.target.nodeName === "CANVAS") activeObjectId = null;
   }
+
   function onMeasure(scale, i) {
     pagesScale[i] = scale;
   }
+
   // FIXME: Should wait all objects finish their async work
   async function savePDF() {
     if (!pdfFile || saving || !pages.length) return;
@@ -359,6 +479,8 @@
   }
 
   function handlePatientButtonBlur(event) {
+    if (!patientInfo) return;
+    if (selectedPageIndex < 0) return;
     // Check if the new focus target is inside the dropdown
     const relatedTarget = event.relatedTarget;
     const dropdown = document.querySelector(".patient-dropdown");
@@ -366,6 +488,35 @@
     // Only close if not clicking inside dropdown
     if (!dropdown.contains(relatedTarget)) {
       showPatientDropdown = false;
+    }
+  }
+
+  // Function to get current date time
+  function getCurrentDateTime() {
+    const now = new Date();
+    return now.toLocaleString();
+  }
+
+  // Function to add date field
+  function onAddDateField() {
+    if (selectedPageIndex >= 0) {
+      const id = genID();
+      fetchFont(currentFont);
+      const object = {
+        id,
+        text: new Date().toLocaleString(),
+        type: "text",
+        size: 16,
+        width: 0,
+        lineHeight: 1.4,
+        fontFamily: currentFont,
+        x: 0,
+        y: 0,
+        isDateField: true
+      };
+      allObjects = allObjects.map((objects, pIndex) =>
+        pIndex === selectedPageIndex ? [...objects, object] : objects
+      );
     }
   }
 </script>
@@ -411,7 +562,7 @@
     >
       {#if showTools.addImage}
         <button
-          class="flex items-center justify-center h-full w-8 hover:bg-gray-500
+          class="flex items-center justify-center h-full w-8 hover:bg-gray-500 focus:outline-none
           cursor-pointer"
           class:cursor-not-allowed={selectedPageIndex < 0}
           class:bg-gray-500={selectedPageIndex < 0}
@@ -429,30 +580,41 @@
       {/if}
       {#if showTools.addText}
         <button
-          class="flex items-center justify-center h-full w-8 hover:bg-gray-500
-          cursor-pointer border-b-2 border-gray-600"
+          class="flex items-center justify-center h-full w-8 hover:bg-gray-500 focus:outline-none
+          cursor-pointer"
           class:cursor-not-allowed={selectedPageIndex < 0}
           class:bg-gray-500={selectedPageIndex < 0}
           on:click={onAddTextField}
         >
-          <img src="notes.svg" alt="An icon for adding text" />
+          <img src="T.png" alt="An icon for adding text" />
         </button>
       {/if}
       {#if showTools.addDrawing}
         <button
-          class="flex items-center justify-center h-full w-8 hover:bg-gray-500
+          class="flex items-center justify-center h-full w-8 hover:bg-gray-500 focus:outline-none
           cursor-pointer"
           on:click={onAddDrawing}
           class:cursor-not-allowed={selectedPageIndex < 0}
           class:bg-gray-500={selectedPageIndex < 0}
         >
-          <img src="gesture.svg" alt="An icon for adding drawing" />
+          <img src="signature.png" alt="An icon for adding drawing" />
+        </button>
+      {/if}
+      {#if showTools.addDate}
+        <button
+          class="flex items-center justify-center h-full w-8 hover:bg-gray-500 focus:outline-none
+          cursor-pointer"
+          on:click={onAddDateField}
+          class:cursor-not-allowed={selectedPageIndex < 0}
+          class:bg-gray-500={selectedPageIndex < 0}
+        >
+          <img src="calendar.png" alt="An icon for adding date" />
         </button>
       {/if}
       {#if showTools.patient.showInfo}
         <div class="relative">
           <button
-            class="flex items-center justify-center h-full w-8 hover:bg-gray-500
+            class="flex items-center justify-center h-full w-8 hover:bg-gray-500 focus:outline-none
             cursor-pointer"
             class:cursor-not-allowed={selectedPageIndex < 0}
             class:bg-gray-500={selectedPageIndex < 0}
@@ -469,7 +631,7 @@
             on:click={togglePatientDropdown}
             on:blur={handlePatientButtonBlur}
           >
-            <img src="person.svg" alt="Patient info" />
+            <img src="person.png" alt="Patient info" />
           </button>
 
           {#if showPatientDropdown}
@@ -478,41 +640,40 @@
             >
               {#if patientInfo}
                 <div class="px-1 py-1">
-                  <button
-                    class="block w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1"
-                    draggable="true"
-                    on:click={() => {
-                      if (selectedPageIndex >= 0) {
-                        addTextField(`${patientInfo.fullName}`);
-                        showPatientDropdown = false;
-                      }
-                    }}
-                  >
-                    <div class="text-xs text-gray-500">{$_("lblFullName")}</div>
-                    <div class="font-medium">{patientInfo.fullName}</div>
-                  </button>
-
-                  <button
-                    class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
-                    draggable="true"
-                    on:click={() => {
-                      if (selectedPageIndex >= 0) {
-                        addTextField(`${patientInfo.dateOfBirth}`);
-                        showPatientDropdown = false;
-                      }
-                    }}
-                  >
-                    <div class="text-xs text-gray-500">
-                      {$_("lblDateOfBirth")}
-                    </div>
-                    <div class="font-medium">{patientInfo.dateOfBirth}</div>
-                  </button>
+                  {#if patientInfo.fullName}
+                    <button
+                      class="block w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
+                      draggable="true"
+                      on:click={() => addPatientTextField("fullName")}
+                    >
+                      <div class="text-xs text-gray-500">
+                        {$_("lblFullName")}
+                      </div>
+                      <div class="font-medium">
+                        {getPatientValue("fullName")}
+                      </div>
+                    </button>
+                  {/if}
+                  {#if patientInfo.dateOfBirth}
+                    <button
+                      class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded focus:outline-none"
+                      draggable="true"
+                      on:click={() => addPatientTextField("dateOfBirth")}
+                    >
+                      <div class="text-xs text-gray-500">
+                        {$_("lblDateOfBirth")}
+                      </div>
+                      <div class="font-medium">
+                        {getPatientValue("dateOfBirth")}
+                      </div>
+                    </button>
+                  {/if}
                 </div>
               {/if}
               {#if showTools.patient.allowCreate}
                 <div class="px-1 py-1">
                   <button
-                    class="block w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                    class="block w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded focus:outline-none"
                     on:click={() => handlePatientAction("create")}
                   >
                     <div class="text-xs text-gray-500">
@@ -532,7 +693,7 @@
       <input
         type="text"
         disabled
-        class="flex-grow bg-transparent"
+        class="flex-grow bg-transparent text-center"
         bind:value={pdfName}
       />
     </div>
@@ -612,8 +773,12 @@
                     width={object.width}
                     height={object.height}
                     pageScale={pagesScale[pIndex]}
+                    pageWidth={pagesDimensions[pIndex].width || 0}
+                    pageHeight={pagesDimensions[pIndex].height || 0}
                     isActive={activeObjectId === object.id}
                     on:activate={() => handleObjectActivation(object.id)}
+                    isLastPage={pIndex === pages.length - 1}
+                    isFirstPage={pIndex === 0}
                   />
                 {:else if object.type === "text"}
                   <Text
@@ -627,8 +792,12 @@
                     lineHeight={object.lineHeight}
                     fontFamily={object.fontFamily}
                     pageScale={pagesScale[pIndex]}
+                    pageWidth={pagesDimensions[pIndex].width || 0}
+                    pageHeight={pagesDimensions[pIndex].height || 0}
                     isActive={activeObjectId === object.id}
                     on:activate={() => handleObjectActivation(object.id)}
+                    isDateField={object.isDateField}
+                    dateFormats={defaultDateTimeFormats}
                   />
                 {:else if object.type === "drawing"}
                   <Drawing
@@ -643,6 +812,10 @@
                     pageScale={pagesScale[pIndex]}
                     isActive={activeObjectId === object.id}
                     on:activate={() => handleObjectActivation(object.id)}
+                    pageWidth={pagesDimensions[pIndex].width || 0}
+                    pageHeight={pagesDimensions[pIndex].height || 0}
+                    isLastPage={pIndex === pages.length - 1}
+                    isFirstPage={pIndex === 0}
                   />
                 {/if}
               {/each}

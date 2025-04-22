@@ -13,6 +13,16 @@
   export let fontFamily;
   export let pageScale = 1;
   export let isActive = false;
+  export let pageWidth = 0;
+  export let pageHeight = 0;
+  export let isDateField = false;
+  export let dateFormats = [
+    { label: "Full Date & Time", value: "full" },
+    { label: "Date Only", value: "date" },
+    { label: "Time Only", value: "time" },
+    { label: "DD/MM/YYYY", value: "dd/mm/yyyy" },
+    { label: "YYYY-MM-DD", value: "yyyy-mm-dd" }
+  ];
   const Families = Object.keys(Fonts);
   const dispatch = createEventDispatcher();
   let startX;
@@ -24,26 +34,58 @@
   let dx = 0;
   let dy = 0;
   let operation = "";
+  let lastMoveTime = 0;
+  const THROTTLE_MS = 16;
+
+  function isWithinBounds(newX, newY, elementWidth, elementHeight) {
+    return (
+      newX >= 0 && 
+      (newX + elementWidth) <= pageWidth && 
+      newY >= 0 && 
+      (newY + elementHeight) <= pageHeight
+    );
+  }
+
+  function isWithinHorizontalBounds(newX, elementWidth) {
+    return newX >= 0 && (newX + elementWidth) <= pageWidth;
+  }
+
   function handlePanMove(event) {
+    const currentTime = Date.now();
+    if (currentTime - lastMoveTime < THROTTLE_MS) return;
+    lastMoveTime = currentTime;
+
     dx = (event.detail.x - startX) / pageScale;
     dy = (event.detail.y - startY) / pageScale;
   }
 
   function handlePanEnd(event) {
-    if (dx === 0 && dy === 0) {
-      return editable.focus();
+    if (operation !== "move") return;
+    const newX = x + dx;
+    const newY = y + dy;
+    const elementWidth = editable.clientWidth;
+
+    // Only check horizontal bounds
+    if (isWithinHorizontalBounds(newX, elementWidth)) {
+      dispatch("update", {
+        x: newX,
+        y: newY
+      });
+    } else {
+      // If outside horizontal bounds, clamp only the x position
+      const clampedX = Math.max(0, Math.min(newX, pageWidth - elementWidth));
+      dispatch("update", {
+        x: clampedX,
+        y: newY
+      });
     }
-    dispatch("update", {
-      x: x + dx,
-      y: y + dy
-    });
+
     dx = 0;
     dy = 0;
     operation = "";
   }
   function handlePanStart(event) {
     dispatch('activate');
-    if (!isActive) return;
     
     startX = event.detail.x;
     startY = event.detail.y;
@@ -51,7 +93,12 @@
   }
   function onFocus() {
     dispatch('activate');
-    if (!isActive) return;
+    operation = "edit";
+  }
+  function onClick(event) {
+    if (!isActive) {
+      dispatch('activate');
+    }
     operation = "edit";
   }
   async function onBlur() {
@@ -157,6 +204,27 @@
   function onDelete() {
     dispatch("delete");
   }
+  function formatDate(format) {
+    const now = new Date();
+    switch (format) {
+      case "full":
+        return now.toLocaleString();
+      case "date":
+        return now.toLocaleDateString();
+      case "time":
+        return now.toLocaleTimeString();
+      case "dd/mm/yyyy":
+        return `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
+      case "yyyy-mm-dd":
+        return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+      default:
+        return now.toLocaleString();
+    }
+  }
+  function updateDateFormat(format) {
+    text = formatDate(format);
+    render();
+  }
   onMount(render);
 </script>
 
@@ -224,6 +292,32 @@
           </div>
         </div>
       </div>
+      {#if isDateField}
+        <div class="mr-2 flex items-center">
+          <img src="/calendar.png" class="w-4 mr-2" alt="Date format" />
+          <div class="relative w-32 md:w-40">
+            <select
+              on:change={(e) => updateDateFormat(e.target.value)}
+              class="font-family">
+              {#each dateFormats as format}
+                <option value={format.value}>{format.label}</option>
+              {/each}
+            </select>
+            <div
+              class="pointer-events-none absolute inset-y-0 right-0 flex
+              items-center px-2 text-gray-700">
+              <svg
+                class="fill-current h-4 w-4"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20">
+                <path
+                  d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757
+                  6.586 4.343 8z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      {/if}
       <div
         on:click={onDelete}
         class="w-5 h-5 rounded-full bg-white cursor-pointer">
@@ -242,6 +336,7 @@
     on:panstart={handlePanStart}
     on:panmove={handlePanMove}
     on:panend={handlePanEnd}
+    on:click={onClick}
     class="absolute w-full h-full border border-dotted
     border-gray-500"
     class:cursor-grab={!operation}
@@ -250,6 +345,7 @@
   <div
     bind:this={editable}
     on:focus={onFocus}
+    on:click={onClick}
     on:keydown={onKeydown}
     on:paste|preventDefault={onPaste}
     contenteditable="true"

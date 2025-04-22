@@ -46,6 +46,11 @@ export default function prepareAssets() {
 
 // out of the box fonts
 const fonts = {
+  'Times-Roman': {
+    correction(size, lineHeight) {
+      return (size * lineHeight - size) / 2 + size / 7;
+    },
+  },
   Courier: {
     correction(size, lineHeight) {
       return (size * lineHeight - size) / 2 + size / 6;
@@ -56,21 +61,11 @@ const fonts = {
       return (size * lineHeight - size) / 2 + size / 10;
     },
   },
-  'Times-Roman': {
-    correction(size, lineHeight) {
-      return (size * lineHeight - size) / 2 + size / 7;
-    },
-  },
+  
 };
 // Available fonts
 export const Fonts = {
   ...fonts,
-  標楷體: {
-    src: '/CK.ttf', // 9.9 MB
-    correction(size, lineHeight) {
-      return (size * lineHeight - size) / 2;
-    },
-  },
 };
 
 export function fetchFont(name) {

@@ -10,6 +10,10 @@
   export let pageScale = 1;
   export let path;
   export let isActive = false;
+  export let pageWidth = 0;
+  export let pageHeight = 0;
+  export let isLastPage = false;
+  export let isFirstPage = false;
   const dispatch = createEventDispatcher();
   let startX;
   let startY;
@@ -20,26 +24,49 @@
   let dw = 0;
   let direction = "";
   const ratio = originWidth / originHeight;
+  let lastMoveTime = 0;
+  const THROTTLE_MS = 16; // Approximately 60fps
+
   async function render() {
     svg.setAttribute("viewBox", `0 0 ${originWidth} ${originHeight}`);
   }
+
+  function isWithinBounds(newX, newY, elementWidth, elementHeight) {
+    return (
+      newX >= 0 && 
+      (newX + elementWidth) <= pageWidth && 
+      newY >= 0 && 
+      (newY + elementHeight) <= pageHeight
+    );
+  }
+
+  function isWithinHorizontalBounds(newX, elementWidth) {
+    return newX >= 0 && (newX + elementWidth) <= pageWidth;
+  }
+
   function handlePanMove(event) {
+    const currentTime = Date.now();
+    if (currentTime - lastMoveTime < THROTTLE_MS) return;
+    lastMoveTime = currentTime;
+
     const _dx = (event.detail.x - startX) / pageScale;
     const _dy = (event.detail.y - startY) / pageScale;
+    
     if (operation === "move") {
+      // Allow movement but store the delta
       dx = _dx;
       dy = _dy;
     } else if (operation === "scale") {
       if (direction === "left-top") {
-        let d = Infinity;
-        d = Math.min(_dx, _dy * ratio);
+        let d = Math.min(_dx, _dy * ratio);
+        // Allow scaling but store the delta
         dx = d;
         dw = -d;
         dy = d / ratio;
       }
       if (direction === "right-bottom") {
-        let d = -Infinity;
-        d = Math.max(_dx, _dy * ratio);
+        let d = Math.max(_dx, _dy * ratio);
+        // Allow scaling but store the delta
         dw = d;
       }
     }
@@ -47,29 +74,109 @@
 
   function handlePanEnd(event) {
     if (operation === "move") {
-      dispatch("update", {
-        x: x + dx,
-        y: y + dy
-      });
-      dx = 0;
-      dy = 0;
+      const newX = x + dx;
+      const newY = y + dy;
+      const elementWidth = width + dw;
+      const elementHeight = (width + dw) / ratio;
+
+      // Check horizontal bounds and vertical bounds for first/last page
+      if (isWithinHorizontalBounds(newX, elementWidth)) {
+        let clampedY = newY;
+        
+        // On first page, prevent dragging above page top
+        if (isFirstPage) {
+          clampedY = Math.max(0, newY);
+        }
+        
+        // On last page, prevent dragging below page bottom
+        if (isLastPage) {
+          clampedY = Math.min(newY, pageHeight - elementHeight);
+        }
+
+        dispatch("update", {
+          x: newX,
+          y: clampedY
+        });
+      } else {
+        // If outside horizontal bounds, clamp x position and check vertical bounds
+        const clampedX = Math.max(0, Math.min(newX, pageWidth - elementWidth));
+        let clampedY = newY;
+        
+        // On first page, prevent dragging above page top
+        if (isFirstPage) {
+          clampedY = Math.max(0, newY);
+        }
+        
+        // On last page, prevent dragging below page bottom
+        if (isLastPage) {
+          clampedY = Math.min(newY, pageHeight - elementHeight);
+        }
+
+        dispatch("update", {
+          x: clampedX,
+          y: clampedY
+        });
+      }
     } else if (operation === "scale") {
-      dispatch("update", {
-        x: x + dx,
-        y: y + dy,
-        width: width + dw,
-        scale: (width + dw) / originWidth
-      });
-      dx = 0;
-      dy = 0;
-      dw = 0;
-      direction = "";
+      const newWidth = width + dw;
+      const newHeight = newWidth / ratio;
+      const newX = x + dx;
+      const newY = y + dy;
+
+      // For scaling, check bounds
+      if (isWithinHorizontalBounds(newX, newWidth)) {
+        let clampedY = newY;
+        
+        // On first page, prevent scaling above page top
+        if (isFirstPage) {
+          clampedY = Math.max(0, newY);
+        }
+        
+        // On last page, prevent scaling below page bottom
+        if (isLastPage) {
+          clampedY = Math.min(newY, pageHeight - newHeight);
+        }
+
+        dispatch("update", {
+          x: newX,
+          y: clampedY,
+          width: newWidth,
+          scale: newWidth / originWidth
+        });
+      } else {
+        // If scaling would exceed horizontal bounds, clamp width and position
+        const clampedX = Math.max(0, Math.min(newX, pageWidth - newWidth));
+        const clampedWidth = Math.min(newWidth, pageWidth);
+        let clampedY = newY;
+        
+        // On first page, prevent scaling above page top
+        if (isFirstPage) {
+          clampedY = Math.max(0, newY);
+        }
+        
+        // On last page, prevent scaling below page bottom
+        if (isLastPage) {
+          clampedY = Math.min(newY, pageHeight - (clampedWidth / ratio));
+        }
+
+        dispatch("update", {
+          x: clampedX,
+          y: clampedY,
+          width: clampedWidth,
+          scale: clampedWidth / originWidth
+        });
+      }
     }
+
+    dx = 0;
+    dy = 0;
+    dw = 0;
+    direction = "";
     operation = "";
   }
+
   function handlePanStart(event) {
     dispatch('activate');
-    if (!isActive) return;
     
     startX = event.detail.x;
     startY = event.detail.y;
@@ -79,9 +186,11 @@
     operation = "scale";
     direction = event.detail.target.dataset.direction;
   }
+
   function onDelete() {
     dispatch("delete");
   }
+
   onMount(render);
 </script>
 
@@ -101,8 +210,10 @@
     on:panstart={handlePanStart}
     on:panmove={handlePanMove}
     on:panend={handlePanEnd}
-    class="absolute w-full h-full border border-gray-400
-    border-dashed"
+    class="absolute w-full h-full"
+    class:border={isActive}
+    class:border-gray-400={isActive}
+    class:border-dashed={isActive}
     class:cursor-grabbing={operation === 'move'}
     class:operation={isActive}>
     {#if isActive}

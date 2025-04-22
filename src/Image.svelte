@@ -10,6 +10,10 @@
   export let y;
   export let pageScale = 1;
   export let isActive = false;
+  export let pageWidth = 0;
+  export let pageHeight = 0;
+  export let isLastPage = false;
+  export let isFirstPage = false;
   const dispatch = createEventDispatcher();
   let startX;
   let startY;
@@ -21,6 +25,22 @@
   let dw = 0;
   let dh = 0;
   let ratio = null;
+  let lastMoveTime = 0;
+  const THROTTLE_MS = 16;
+
+  function isWithinBounds(newX, newY, elementWidth, elementHeight) {
+    return (
+      newX >= 0 && 
+      (newX + elementWidth) <= pageWidth && 
+      newY >= 0 && 
+      (newY + elementHeight) <= pageHeight
+    );
+  }
+
+  function isWithinHorizontalBounds(newX, elementWidth) {
+    return newX >= 0 && (newX + elementWidth) <= pageWidth;
+  }
+
   async function render() {
     // use canvas to prevent img tag's auto resize
     canvas.width = width;
@@ -46,14 +66,21 @@
       });
     }
   }
+
   function handlePanMove(event) {
+    const currentTime = Date.now();
+    if (currentTime - lastMoveTime < THROTTLE_MS) return;
+    lastMoveTime = currentTime;
+
     const _dx = (event.detail.x - startX) / pageScale;
     const _dy = (event.detail.y - startY) / pageScale;
+
     if (operation === "move") {
       dx = _dx;
       dy = _dy;
       return;
     }
+
     if (operation === "scale") {
       if (direction === "left") {
         dw = -_dx;
@@ -98,6 +125,7 @@
         if (ratio !== null) {
           [dw, dh] = calculateDimensionWithRatio(-Infinity, dh);
         }
+        dy = -dh;
       } else if (direction === "left-bottom") {
         dw = -_dx;
         dh = _dy;
@@ -111,26 +139,103 @@
 
   function handlePanEnd(event) {
     if (operation === "move") {
-      dispatch("update", {
-        x: x + dx,
-        y: y + dy
-      });
-      dx = 0;
-      dy = 0;
+      const newX = x + dx;
+      const newY = y + dy;
+
+      // Check horizontal bounds and vertical bounds for first/last page
+      if (isWithinHorizontalBounds(newX, width)) {
+        let clampedY = newY;
+        
+        // On first page, prevent dragging above page top
+        if (isFirstPage) {
+          clampedY = Math.max(0, newY);
+        }
+        
+        // On last page, prevent dragging below page bottom
+        if (isLastPage) {
+          clampedY = Math.min(newY, pageHeight - height);
+        }
+
+        dispatch("update", {
+          x: newX,
+          y: clampedY
+        });
+      } else {
+        // If outside horizontal bounds, clamp x position and check vertical bounds
+        const clampedX = Math.max(0, Math.min(newX, pageWidth - width));
+        let clampedY = newY;
+        
+        // On first page, prevent dragging above page top
+        if (isFirstPage) {
+          clampedY = Math.max(0, newY);
+        }
+        
+        // On last page, prevent dragging below page bottom
+        if (isLastPage) {
+          clampedY = Math.min(newY, pageHeight - height);
+        }
+
+        dispatch("update", {
+          x: clampedX,
+          y: clampedY
+        });
+      }
     } else if (operation === "scale") {
-      dispatch("update", {
-        x: x + dx,
-        y: y + dy,
-        width: width + dw,
-        height: height + dh
-      });
-      dx = 0;
-      dy = 0;
-      dw = 0;
-      dh = 0;
-      direction = "";
+      const newWidth = width + dw;
+      const newHeight = height + dh;
+      const newX = x + dx;
+      const newY = y + dy;
+
+      // For scaling, check bounds
+      if (isWithinHorizontalBounds(newX, newWidth)) {
+        let clampedY = newY;
+        
+        // On first page, prevent scaling above page top
+        if (isFirstPage) {
+          clampedY = Math.max(0, newY);
+        }
+        
+        // On last page, prevent scaling below page bottom
+        if (isLastPage) {
+          clampedY = Math.min(newY, pageHeight - newHeight);
+        }
+
+        dispatch("update", {
+          x: newX,
+          y: clampedY,
+          width: newWidth,
+          height: newHeight
+        });
+      } else {
+        // If scaling would exceed horizontal bounds, clamp width and position
+        const clampedX = Math.max(0, Math.min(newX, pageWidth - newWidth));
+        let clampedY = newY;
+        
+        // On first page, prevent scaling above page top
+        if (isFirstPage) {
+          clampedY = Math.max(0, newY);
+        }
+        
+        // On last page, prevent scaling below page bottom
+        if (isLastPage) {
+          clampedY = Math.min(newY, pageHeight - newHeight);
+        }
+
+        dispatch("update", {
+          x: clampedX,
+          y: clampedY,
+          width: Math.min(newWidth, pageWidth),
+          height: newHeight
+        });
+      }
     }
+
+    dx = 0;
+    dy = 0;
+    dw = 0;
+    dh = 0;
     operation = "";
+    direction = "";
   }
   function calculateDimensionWithRatio(dw, dh) {
     const dhFromDw = (width + dw) / ratio - height;
@@ -142,7 +247,6 @@
   }
   function handlePanStart(event) {
     dispatch('activate');
-    if (!isActive) return;
     
     startX = event.detail.x;
     startY = event.detail.y;
@@ -184,10 +288,10 @@
     background-color: rgba(0, 0, 0, 0.3);
   }
   .resize-border {
-    @apply absolute border-dashed border-gray-600;
+    @apply absolute;
   }
   .resize-corner {
-    @apply absolute w-4 h-4 bg-blue-300 rounded-full;
+    @apply absolute w-4 h-4 bg-blue-300 rounded-full border-dashed border-gray-600;
   }
   .btn-delete {
     @apply w-5 h-5
