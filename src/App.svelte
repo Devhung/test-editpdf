@@ -336,9 +336,9 @@
       id,
       text,
       type: "text",
-      size: 16,
+      size: 12,
       width: 0, // recalculate after editing
-      lineHeight: 1.4,
+      lineHeight: 1.2,
       fontFamily: currentFont,
       x: 0,
       y: 0,
@@ -431,25 +431,31 @@
     const object = allObjects[currentPage].find(obj => obj.id === objectId);
     if (!object) return;
 
-    // Check if object is being dragged beyond page boundaries
-    if (payload.y !== undefined) {
-      const objectHeight = object.height || object.lineHeight * object.size || (object.width / (object.originWidth / object.originHeight)) || 0;
-      
-      // If dragged above current page
-      if (payload.y < 0 && currentPage > 0) {
-        const newY = pagesDimensions[currentPage - 1].height - objectHeight;
+    // Tính toán chiều cao mới của object
+    const newHeight = payload.width 
+      ? payload.width / (object.originWidth / object.originHeight)
+      : object.height || object.lineHeight * object.size || (object.width / (object.originWidth / object.originHeight)) || 0;
+
+    // Tính toán vị trí Y mới
+    const newY = payload.y !== undefined ? payload.y : object.y;
+
+    // Chỉ kiểm tra nhảy trang khi đang di chuyển (không phải đang scale)
+    if (payload.y !== undefined && !payload.width) {
+      // Nếu kéo lên trên trang hiện tại
+      if (newY < 0 && currentPage > 0) {
+        const newY = pagesDimensions[currentPage - 1].height - newHeight;
         moveObjectToPage(objectId, currentPage, currentPage - 1, newY);
         return;
       }
       
-      // If dragged below current page
-      if (payload.y + objectHeight > pagesDimensions[currentPage].height && currentPage < pages.length - 1) {
+      // Nếu kéo xuống dưới trang hiện tại
+      if (newY + newHeight > pagesDimensions[currentPage].height && currentPage < pages.length - 1) {
         moveObjectToPage(objectId, currentPage, currentPage + 1, 0);
         return;
       }
     }
 
-    // Normal update within page
+    // Cập nhật bình thường trong trang
     allObjects = allObjects.map((objects, pIndex) =>
       pIndex === currentPage
         ? objects.map(object =>
@@ -522,9 +528,9 @@
         id,
         text: targetDate.toISOString(), // Store as ISO string to preserve timezone info
         type: "text",
-        size: 16,
+        size: 12,
         width: 0,
-        lineHeight: 1.4,
+        lineHeight: 1.2,
         fontFamily: currentFont,
         x: 0,
         y: 0,
