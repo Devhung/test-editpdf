@@ -178,7 +178,15 @@
     });
   }
   function render() {
-    editable.innerHTML = text;
+    if (isDateField && text) {
+      // For date fields, format the display but keep original value
+      const defaultFormat = dateFormats && dateFormats.length > 0 
+        ? dateFormats[0].value 
+        : 'yyyy-MM-dd HH:mm';
+      editable.innerHTML = formatDate(defaultFormat);
+    } else {
+      editable.innerHTML = text;
+    }
     editable.focus();
   }
   function extractLines() {
@@ -201,25 +209,66 @@
     dispatch("delete");
   }
   function formatDate(format) {
-    const now = new Date();
-    switch (format) {
-      case "full":
-        return now.toLocaleString();
-      case "date":
-        return now.toLocaleDateString();
-      case "time":
-        return now.toLocaleTimeString();
-      case "dd/mm/yyyy":
-        return `${now.getDate().toString().padStart(2, "0")}/${(now.getMonth() + 1).toString().padStart(2, "0")}/${now.getFullYear()}`;
-      case "yyyy-mm-dd":
-        return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")}`;
-      default:
-        return now.toLocaleString();
+    try {
+      // Parse the stored ISO date string
+      const targetDate = new Date(text);
+      
+      if (isNaN(targetDate.getTime())) {
+        throw new Error('Invalid date');
+      }
+
+      const pad = (num) => String(num).padStart(2, '0');
+      
+      // Get date components in the correct timezone
+      const year = targetDate.getFullYear();
+      const month = pad(targetDate.getMonth() + 1);
+      const day = pad(targetDate.getDate());
+      const hours24 = targetDate.getHours();
+      const hours12 = hours24 % 12 || 12;
+      const minutes = pad(targetDate.getMinutes());
+      const ampm = hours24 >= 12 ? 'PM' : 'AM';
+
+      // Format the date according to the pattern
+      const formatDateTime = (pattern) => {
+        let result = pattern
+          .replace('YYYY', year)
+          .replace('yyyy', year)
+          .replace('MM', month)
+          .replace('dd', day)
+          .replace('DD', day)
+          .replace('HH', pad(hours24))
+          .replace('hh', pad(hours12))
+          .replace('mm', minutes)
+          .replace('a', ampm)
+          .replace('A', ampm);
+        
+        console.log("Format pattern:", pattern);
+        console.log("Formatted result:", result);
+        return result;
+      };
+
+      return formatDateTime(format);
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return text; // Return original text if formatting fails
     }
   }
-  function updateDateFormat(format) {
-    text = formatDate(format);
-    render();
+  function updateDateFormat(event) {
+    const newFormat = event.target.value;
+    console.log("Selected new format:", newFormat);
+    
+    const formattedDate = formatDate(newFormat);
+    console.log("Formatted date result:", formattedDate);
+    
+    // Only update display text, keep original ISO string in text prop
+    editable.innerHTML = formattedDate;
+    
+    // Dispatch update to parent
+    dispatch("update", {
+      width: editable.clientWidth,
+      displayText: formattedDate,
+      format: newFormat
+    });
   }
   onMount(render);
 </script>
@@ -290,7 +339,7 @@
           <img src="/calendar.png" class="w-4 mr-2" alt="Date format" />
           <div class="relative w-[10rem] md:w-48">
             <select
-              on:change={(e) => updateDateFormat(e.target.value)}
+              on:change={updateDateFormat}
               class="font-family"
             >
               {#each dateFormats as format}

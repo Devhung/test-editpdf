@@ -51,10 +51,11 @@ Khi editor khởi tạo xong và sẵn sàng nhận lệnh, nó sẽ gửi messa
       addDate: {
         enabled: true,
         formats: [
-          { label: "YYYY-MM-DD HH:mm", value: "yyyy-mm-dd hh:mm" },
-          { label: "DD/MM/YYYY", value: "dd/mm/yyyy" },
-          { label: "MM/DD/YYYY", value: "mm/dd/yyyy" }
-        ]
+          { label: "YYYY-MM-DD HH:mm", value: "YYYY-MM-DD HH:mm" },
+          { label: "YYYY/MM/DD hh:mm A", value: "YYYY/MM/DD hh:mm A" },
+          { label: "DD/MM/YYYY HH:mm", value: "DD/MM/YYYY HH:mm" }
+        ],
+        timezone: 0 // Múi giờ mặc định (UTC+0)
       },
       savePDF: true,
       patient: {
@@ -92,7 +93,9 @@ Dùng để khởi tạo editor với dữ liệu ban đầu. Message này thư�
             label: string,   // Nhãn hiển thị cho định dạng
             value: string    // Giá trị định dạng thực tế
           }
-        ]
+        ],
+        timezone: number,    // Múi giờ (UTC offset theo giờ, ví dụ: 7 cho UTC+7)
+        defaultFormat: string // Định dạng mặc định được chọn (tùy chọn)
       },
       savePDF: boolean,
       patient: {
@@ -115,20 +118,21 @@ Nếu không cung cấp `formats` trong cấu hình `addDate`, editor sẽ sử 
 
 ```javascript
 const defaultDateTimeFormats = [
-  { label: "YYYY-MM-DD HH:mm", value: "yyyy-mm-dd hh:mm" },
-  { label: "YYYY/MM/DD HH:mm", value: "yyyy/mm/dd hh:mm" },
-  { label: "MM/DD/YYYY", value: "mm/dd/yyyy" },
-  { label: "MM-DD-YYYY", value: "mm-dd-yyyy" },
-  { label: "DD-MM-YYYY", value: "dd-mm-yyyy" },
-  { label: "DD/MM/YYYY", value: "dd/mm/yyyy" },
-  { label: "YYYY-MM-DD", value: "yyyy-mm-dd" },
-  { label: "YYYY/MM/DD", value: "yyyy/mm/dd" }
+  { label: "YYYY-MM-DD HH:mm", value: "YYYY-MM-DD HH:mm" },    // 24-hour
+  { label: "YYYY/MM/DD hh:mm A", value: "YYYY/MM/DD hh:mm A" }, // 12-hour
+  { label: "DD/MM/YYYY HH:mm", value: "DD/MM/YYYY HH:mm" },     // European 24-hour
+  { label: "MM/DD/YYYY hh:mm A", value: "MM/DD/YYYY hh:mm A" }, // US 12-hour
+  { label: "YYYY-MM-DD", value: "YYYY-MM-DD" },                 // Date only
+  { label: "DD-MM-YYYY", value: "DD-MM-YYYY" },                 // European date
+  { label: "MM/DD/YYYY", value: "MM/DD/YYYY" },                 // US date
+  { label: "HH:mm", value: "HH:mm" }                           // Time only 24-hour
 ];
 ```
 
 Bạn có thể tùy chỉnh danh sách định dạng bằng cách cung cấp mảng `formats` trong cấu hình `addDate`. Mỗi định dạng cần có:
 - `label`: Nhãn hiển thị trong dropdown cho người dùng chọn
-- `value`: Định dạng thực tế được áp dụng (sử dụng ký tự thường)
+- `value`: Định dạng thực tế được áp dụng
+- `timezone`: Múi giờ áp dụng cho trường ngày tháng (UTC offset theo giờ)
 
 #### 1.4.3. PDF_LOAD
 Dùng để tải một file PDF vào editor. File có thể được gửi dưới dạng Blob hoặc Uint8Array.
@@ -183,10 +187,12 @@ Cập nhật trạng thái hiển thị của các công cụ và tính năng tr
     addDate: {
       enabled: true,
       formats: [
-        { label: "YYYY-MM-DD HH:mm", value: "yyyy-mm-dd hh:mm" },
-        { label: "DD/MM/YYYY", value: "dd/mm/yyyy" },
-        { label: "MM/DD/YYYY", value: "mm/dd/yyyy" }
-      ]
+        { label: "YYYY-MM-DD HH:mm", value: "YYYY-MM-DD HH:mm" },
+        { label: "DD/MM/YYYY HH:mm", value: "DD/MM/YYYY HH:mm" },
+        { label: "MM/DD/YYYY hh:mm A", value: "MM/DD/YYYY hh:mm A" }
+      ],
+      timezone: 7, // UTC+7
+      defaultFormat: "YYYY-MM-DD HH:mm" // Tùy chọn
     },
     savePDF: true,
     patient: {
@@ -261,10 +267,12 @@ const PDFEditor = ({ initialLanguage = 'vi' }) => {
                   addDate: {
                     enabled: true,
                     formats: [
-                      { label: "YYYY-MM-DD HH:mm", value: "yyyy-mm-dd hh:mm" },
-                      { label: "DD/MM/YYYY", value: "dd/mm/yyyy" },
-                      { label: "MM/DD/YYYY", value: "mm/dd/yyyy" }
-                    ]
+                      { label: "YYYY-MM-DD HH:mm", value: "YYYY-MM-DD HH:mm" },
+                      { label: "DD/MM/YYYY HH:mm", value: "DD/MM/YYYY HH:mm" },
+                      { label: "MM/DD/YYYY hh:mm A", value: "MM/DD/YYYY hh:mm A" }
+                    ],
+                    timezone: 7, // UTC+7
+                    defaultFormat: "YYYY-MM-DD HH:mm"
                   },
                   savePDF: true,
                   patient: {
@@ -354,9 +362,9 @@ function App() {
 }
 ```
 
-## 2. Tích hợp với React Native (WebView)
+## 3. Tích hợp với React Native (WebView)
 
-### 2.1. Cài đặt
+### 3.1. Cài đặt
 
 ```bash
 npm install react-native-webview
@@ -364,7 +372,7 @@ npm install react-native-webview
 yarn add react-native-webview
 ```
 
-### 2.2. Component Example
+### 3.2. Component Example
 
 ```jsx
 import React, { useRef, useState } from 'react';
@@ -398,10 +406,12 @@ const PDFEditorScreen = ({ initialLanguage = 'vi' }) => {
               addDate: {
                 enabled: true,
                 formats: [
-                  { label: "YYYY-MM-DD HH:mm", value: "yyyy-mm-dd hh:mm" },
-                  { label: "DD/MM/YYYY", value: "dd/mm/yyyy" },
-                  { label: "MM/DD/YYYY", value: "mm/dd/yyyy" }
-                ]
+                  { label: "YYYY-MM-DD HH:mm", value: "YYYY-MM-DD HH:mm" },
+                  { label: "DD/MM/YYYY HH:mm", value: "DD/MM/YYYY HH:mm" },
+                  { label: "MM/DD/YYYY hh:mm A", value: "MM/DD/YYYY hh:mm A" }
+                ],
+                timezone: 7, // UTC+7
+                defaultFormat: "YYYY-MM-DD HH:mm"
               },
               savePDF: true,
               patient: {
@@ -506,7 +516,7 @@ const styles = StyleSheet.create({
 export default PDFEditorScreen;
 ```
 
-### 2.3. Sử dụng Component
+### 3.3. Sử dụng Component
 
 ```jsx
 import PDFEditorScreen from './screens/PDFEditorScreen';

@@ -33,14 +33,14 @@
 
   // Custom date formats (can be overridden from parent)
   let defaultDateTimeFormats = [
-    { label: "YYYY-MM-DD HH:mm", value: "yyyy-mm-dd hh:mm" },
-    { label: "YYYY/MM/DD HH:mm", value: "yyyy/mm/dd hh:mm" },
-    { label: "MM/DD/YYYY", value: "mm/dd/yyyy" },
-    { label: "MM-DD-YYYY", value: "mm-dd-yyyy" },
-    { label: "DD-MM-YYYY", value: "dd-mm-yyyy" },
-    { label: "DD/MM/YYYY", value: "dd/mm/yyyy" },
-    { label: "YYYY-MM-DD", value: "yyyy-mm-dd" },
-    { label: "YYYY/MM/DD", value: "yyyy/mm/dd" },
+    { label: "YYYY-MM-DD HH:mm", value: "YYYY-MM-DD HH:mm" },    // 24-hour
+    { label: "YYYY/MM/DD hh:mm A", value: "YYYY/MM/DD hh:mm A" }, // 12-hour
+    { label: "DD/MM/YYYY HH:mm", value: "DD/MM/YYYY HH:mm" },     // European 24-hour
+    { label: "MM/DD/YYYY hh:mm A", value: "MM/DD/YYYY hh:mm A" }, // US 12-hour
+    { label: "YYYY-MM-DD", value: "YYYY-MM-DD" },                 // Date only
+    { label: "DD-MM-YYYY", value: "DD-MM-YYYY" },                 // European date
+    { label: "MM/DD/YYYY", value: "MM/DD/YYYY" },                 // US date
+    { label: "HH:mm", value: "HH:mm" }                           // Time only 24-hour
   ];
 
   // Tool visibility control
@@ -52,6 +52,8 @@
     addDate: {
       enabled: true,
       formats: null, // If null, will use defaultDateTimeFormats
+      timezone: 0, // Default timezone offset
+      defaultFormat: null // If null, will use first format from formats list
     },
     savePDF: true,
     patient: {
@@ -503,20 +505,22 @@
     }
   }
 
-  // Function to get current date time
-  function getCurrentDateTime() {
-    const now = new Date();
-    return now.toLocaleString();
-  }
-
   // Function to add date field
   function onAddDateField() {
     if (selectedPageIndex >= 0 && showTools.addDate.enabled) {
       const id = genID();
       fetchFont(currentFont);
+      
+      // Create date with timezone
+      const now = new Date();
+      const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const timezone = showTools.addDate.timezone || 0;
+      const targetTime = utcTime + (timezone * 3600000); // Convert hours to milliseconds
+      const targetDate = new Date(targetTime);
+
       const object = {
         id,
-        text: new Date().toLocaleString(),
+        text: targetDate.toISOString(), // Store as ISO string to preserve timezone info
         type: "text",
         size: 16,
         width: 0,
@@ -524,7 +528,9 @@
         fontFamily: currentFont,
         x: 0,
         y: 0,
-        isDateField: true
+        isDateField: true,
+        timezone: timezone,
+        rawValue: targetDate.toISOString() // Store original value with timezone
       };
       allObjects = allObjects.map((objects, pIndex) =>
         pIndex === selectedPageIndex ? [...objects, object] : objects
