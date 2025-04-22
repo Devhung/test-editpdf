@@ -49,13 +49,15 @@
     addImage: false,
     addText: true,
     addDrawing: true,
-    addDate: true,
+    addDate: {
+      enabled: true,
+      formats: null, // If null, will use defaultDateTimeFormats
+    },
     savePDF: true,
     patient: {
-      showInfo: true, // Controls whether to show patient info section
-      allowCreate: true, // Controls whether to allow creating new patients
-      
-    },
+      showInfo: true,
+      allowCreate: true,
+    }
   };
 
   // Add patient info states
@@ -119,6 +121,12 @@
     }
   }
 
+  // Function to get active date formats
+  function getActiveDateFormats() {
+    return showTools.addDate.formats || defaultDateTimeFormats;
+  }
+
+
   // Handle incoming messages from parent window/WebView
   function handleMessage(event) {
     if (!event.data) return;
@@ -140,6 +148,10 @@
           // Update tool visibility if provided
           if (data.tools) {
             showTools = { ...showTools, ...data.tools };
+            // Handle date formats if provided
+            if (data.tools.addDate && data.tools.addDate.formats) {
+              showTools.addDate.formats = data.tools.addDate.formats;
+            }
           }
 
           // Update patient info if provided
@@ -499,7 +511,7 @@
 
   // Function to add date field
   function onAddDateField() {
-    if (selectedPageIndex >= 0) {
+    if (selectedPageIndex >= 0 && showTools.addDate.enabled) {
       const id = genID();
       fetchFont(currentFont);
       const object = {
@@ -600,7 +612,7 @@
           <img src="signature.png" alt="An icon for adding drawing" />
         </button>
       {/if}
-      {#if showTools.addDate}
+      {#if showTools.addDate.enabled}
         <button
           class="flex items-center justify-center h-full w-8 hover:bg-gray-500 focus:outline-none
           cursor-pointer"
@@ -797,7 +809,7 @@
                     isActive={activeObjectId === object.id}
                     on:activate={() => handleObjectActivation(object.id)}
                     isDateField={object.isDateField}
-                    dateFormats={defaultDateTimeFormats}
+                    dateFormats={getActiveDateFormats()}
                   />
                 {:else if object.type === "drawing"}
                   <Drawing

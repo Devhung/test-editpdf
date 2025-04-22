@@ -30,7 +30,7 @@ Message types được đặt theo cấu trúc: `[OBJECT]_[ACTION]` hoặc `[OBJ
 | PDF_SAVE | Yêu cầu lưu PDF | None | Parent → Editor |
 | PDF_SAVED | PDF đã được lưu | Blob hoặc Base64 string | Editor → Parent |
 | IMAGE_ADD | Thêm hình ảnh vào editor | File hoặc Uint8Array | Parent → Editor |
-| TOOLS_VISIBILITY_UPDATE | Cập nhật hiển thị tools và tính năng | { choosePDF, addImage, addText, addDrawing, savePDF, patient } | Parent → Editor |
+| TOOLS_VISIBILITY_UPDATE | Cập nhật hiển thị tools và tính năng | { choosePDF, addImage, addText, addDrawing, addDate, savePDF, patient } | Parent → Editor |
 | PATIENT_INFO_UPDATE | Cập nhật thông tin bệnh nhân | { fullName, dateOfBirth } | Parent → Editor |
 | LANGUAGE_CHANGE | Thay đổi ngôn ngữ | string | Parent → Editor |
 
@@ -48,6 +48,14 @@ Khi editor khởi tạo xong và sẵn sàng nhận lệnh, nó sẽ gửi messa
       addImage: true,
       addText: true,
       addDrawing: true,
+      addDate: {
+        enabled: true,
+        formats: [
+          { label: "YYYY-MM-DD HH:mm", value: "yyyy-mm-dd hh:mm" },
+          { label: "DD/MM/YYYY", value: "dd/mm/yyyy" },
+          { label: "MM/DD/YYYY", value: "mm/dd/yyyy" }
+        ]
+      },
       savePDF: true,
       patient: {
         showInfo: true,
@@ -77,6 +85,15 @@ Dùng để khởi tạo editor với dữ liệu ban đầu. Message này thư�
       addImage: boolean,
       addText: boolean,
       addDrawing: boolean,
+      addDate: {
+        enabled: boolean,     // Bật/tắt tính năng thêm ngày tháng
+        formats: [           // Tùy chọn - Định dạng ngày tháng, nếu không cung cấp sẽ dùng mặc định
+          {
+            label: string,   // Nhãn hiển thị cho định dạng
+            value: string    // Giá trị định dạng thực tế
+          }
+        ]
+      },
       savePDF: boolean,
       patient: {
         showInfo: boolean,    // Hiển thị thông tin bệnh nhân
@@ -91,6 +108,27 @@ Dùng để khởi tạo editor với dữ liệu ban đầu. Message này thư�
   }
 }
 ```
+
+### 1.5. Định dạng ngày tháng mặc định
+
+Nếu không cung cấp `formats` trong cấu hình `addDate`, editor sẽ sử dụng các định dạng mặc định sau:
+
+```javascript
+const defaultDateTimeFormats = [
+  { label: "YYYY-MM-DD HH:mm", value: "yyyy-mm-dd hh:mm" },
+  { label: "YYYY/MM/DD HH:mm", value: "yyyy/mm/dd hh:mm" },
+  { label: "MM/DD/YYYY", value: "mm/dd/yyyy" },
+  { label: "MM-DD-YYYY", value: "mm-dd-yyyy" },
+  { label: "DD-MM-YYYY", value: "dd-mm-yyyy" },
+  { label: "DD/MM/YYYY", value: "dd/mm/yyyy" },
+  { label: "YYYY-MM-DD", value: "yyyy-mm-dd" },
+  { label: "YYYY/MM/DD", value: "yyyy/mm/dd" }
+];
+```
+
+Bạn có thể tùy chỉnh danh sách định dạng bằng cách cung cấp mảng `formats` trong cấu hình `addDate`. Mỗi định dạng cần có:
+- `label`: Nhãn hiển thị trong dropdown cho người dùng chọn
+- `value`: Định dạng thực tế được áp dụng (sử dụng ký tự thường)
 
 #### 1.4.3. PDF_LOAD
 Dùng để tải một file PDF vào editor. File có thể được gửi dưới dạng Blob hoặc Uint8Array.
@@ -142,6 +180,14 @@ Cập nhật trạng thái hiển thị của các công cụ và tính năng tr
     addImage: true,
     addText: true,
     addDrawing: true,
+    addDate: {
+      enabled: true,
+      formats: [
+        { label: "YYYY-MM-DD HH:mm", value: "yyyy-mm-dd hh:mm" },
+        { label: "DD/MM/YYYY", value: "dd/mm/yyyy" },
+        { label: "MM/DD/YYYY", value: "mm/dd/yyyy" }
+      ]
+    },
     savePDF: true,
     patient: {
       showInfo: true,      // Hiển thị thông tin bệnh nhân
@@ -212,6 +258,14 @@ const PDFEditor = ({ initialLanguage = 'vi' }) => {
                   addImage: true,
                   addText: true,
                   addDrawing: true,
+                  addDate: {
+                    enabled: true,
+                    formats: [
+                      { label: "YYYY-MM-DD HH:mm", value: "yyyy-mm-dd hh:mm" },
+                      { label: "DD/MM/YYYY", value: "dd/mm/yyyy" },
+                      { label: "MM/DD/YYYY", value: "mm/dd/yyyy" }
+                    ]
+                  },
                   savePDF: true,
                   patient: {
                     showInfo: true,
@@ -341,6 +395,14 @@ const PDFEditorScreen = ({ initialLanguage = 'vi' }) => {
               addImage: true,
               addText: true,
               addDrawing: true,
+              addDate: {
+                enabled: true,
+                formats: [
+                  { label: "YYYY-MM-DD HH:mm", value: "yyyy-mm-dd hh:mm" },
+                  { label: "DD/MM/YYYY", value: "dd/mm/yyyy" },
+                  { label: "MM/DD/YYYY", value: "mm/dd/yyyy" }
+                ]
+              },
               savePDF: true,
               patient: {
                 showInfo: true,
