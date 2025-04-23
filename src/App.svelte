@@ -15,7 +15,7 @@
       readAsPDF,
       readAsDataURL,
     } from "./utils/asyncReader.js";
-    import { ggID } from "./utils/helper.js";
+    import { ggID , sendMessageToApp } from "./utils/helper.js";
     import { save } from "./utils/PDF.js";
     import { _, changeLanguage } from "./i18n";
     const genID = ggID();
@@ -109,12 +109,9 @@
     function handlePatientAction(action) {
       if (action === "create") {
         // Handle create new patient
-        window.parent.postMessage(
-          {
-            type: "PATIENT_CREATE",
-          },
-          "*"
-        );
+        sendMessageToApp({
+          type: "PATIENT_CREATE",
+        });
       }
       showPatientDropdown = false;
     }
@@ -179,13 +176,10 @@
           savePDF().then(async () => {
             // Convert saved PDF to blob and send back to parent
             const pdfBlob = await save(pdfFile, allObjects, pdfName, pagesScale);
-            window.parent.postMessage(
-              {
-                type: "PDF_SAVED",
-                data: pdfBlob,
-              },
-              "*"
-            );
+            sendMessageToApp({
+              type: "PDF_SAVED",
+              data: pdfBlob,
+            });
           });
           break;
         case "IMAGE_ADD":
@@ -216,16 +210,14 @@
       window.addEventListener("message", handleMessage);
 
       // Notify parent that the editor is ready and request init data
-      window.parent.postMessage(
-        {
-          type: "EDITOR_READY",
-          data: {
+      sendMessageToApp({
+        type: "EDITOR_READY",
+        data: {
             showTools,
             patientInfo,
             language: $_("currentLanguage"),
           },
         },
-        "*"
       );
 
       // Add click outside listener
@@ -740,7 +732,7 @@
       {#if showTools.cancel}
         <button
           on:click={() => {
-            window.parent.postMessage({ type: "EDITOR_CANCEL" }, "*");
+            sendMessageToApp({ type: "EDITOR_CANCEL" });
           }}
           class=" w-20 bg-red-500 hover:bg-red-700 text-white py-1
         rounded mr-2 focus:outline-none"

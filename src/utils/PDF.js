@@ -1,6 +1,6 @@
 import { readAsArrayBuffer } from './asyncReader.js';
 import { fetchFont, getAsset } from './prepareAssets';
-import { noop } from './helper.js';
+import { noop, sendMessageToApp } from './helper.js';
 
 export async function save(pdfFile, objects, name) {
   const PDFLib = await getAsset('PDFLib');
@@ -94,13 +94,10 @@ export async function save(pdfFile, objects, name) {
   try {
     const pdfBytes = await pdfDoc.save();
     const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
-    window.parent.postMessage(
-      {
-        type: "PDF_SAVED",
-        data: pdfBlob,
-      },
-      "*"
-    );
+    sendMessageToApp({
+      type: "PDF_SAVED",
+      data: pdfBlob,
+    });
     // download(pdfBytes, name, 'application/pdf');
   } catch (e) {
     console.log('Failed to save PDF.');
