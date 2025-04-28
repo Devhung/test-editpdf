@@ -10,5 +10,10 @@
     "msgNoFilesFound": "Không tìm thấy tệp",
     "lblLoading": "Đang tải...",
     "btnCancel": "Hủy bỏ",
-    "btnDone": "Hoàn tất"
-}   
+    "btnDone": "Hoàn tất",
+    "lblEMRId": "ID EMR",
+    "lblGender": "Giới tính",
+    "lblPhone": "Điện thoại",
+    "lblEmail": "Email",
+    "lblAddress": "Địa chỉ"
+}

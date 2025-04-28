@@ -1,5 +1,6 @@
 <script>
   import { onMount, onDestroy, createEventDispatcher } from "svelte";
+  import { DEFAULT_SCALE } from "./config/constants.js";
   export let page;
   const dispatch = createEventDispatcher();
   let canvas;
@@ -9,18 +10,18 @@
   let mounted;
   function measure() {
     dispatch("measure", {
-      scale: canvas.clientWidth / width
+      scale: canvas.clientWidth / width,
     });
   }
   async function render() {
     const _page = await page;
     const context = canvas.getContext("2d");
-    const viewport = _page.getViewport({ scale: 1, rotation: 0 });
+    const viewport = _page.getViewport({ scale: DEFAULT_SCALE, rotation: 0 });
     width = viewport.width;
     height = viewport.height;
     await _page.render({
       canvasContext: context,
-      viewport
+      viewport,
     }).promise;
     measure();
     window.addEventListener("resize", measure);
@@ -37,5 +38,6 @@
     class="max-w-full"
     style="width: {width}px;"
     {width}
-    {height} />
+    {height}
+  />
 </div>

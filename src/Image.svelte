@@ -30,15 +30,26 @@
 
   function isWithinBounds(newX, newY, elementWidth, elementHeight) {
     return (
-      newX >= 0 && 
-      (newX + elementWidth) <= pageWidth && 
-      newY >= 0 && 
+      newX >= 0 &&
+      (newX + elementWidth) <= pageWidth &&
+      newY >= 0 &&
       (newY + elementHeight) <= pageHeight
     );
   }
 
   function isWithinHorizontalBounds(newX, elementWidth) {
     return newX >= 0 && (newX + elementWidth) <= pageWidth;
+  }
+
+  // Helper function to clamp Y position based on page constraints
+  function clampYPosition(y, elementHeight) {
+    if (isFirstPage) {
+      return Math.max(0, y);
+    }
+    if (isLastPage) {
+      return Math.min(y, pageHeight - elementHeight);
+    }
+    return y;
   }
 
   async function render() {
@@ -144,18 +155,7 @@
 
       // Check horizontal bounds and vertical bounds for first/last page
       if (isWithinHorizontalBounds(newX, width)) {
-        let clampedY = newY;
-        
-        // On first page, prevent dragging above page top
-        if (isFirstPage) {
-          clampedY = Math.max(0, newY);
-        }
-        
-        // On last page, prevent dragging below page bottom
-        if (isLastPage) {
-          clampedY = Math.min(newY, pageHeight - height);
-        }
-
+        const clampedY = clampYPosition(newY, height);
         dispatch("update", {
           x: newX,
           y: clampedY
@@ -163,18 +163,7 @@
       } else {
         // If outside horizontal bounds, clamp x position and check vertical bounds
         const clampedX = Math.max(0, Math.min(newX, pageWidth - width));
-        let clampedY = newY;
-        
-        // On first page, prevent dragging above page top
-        if (isFirstPage) {
-          clampedY = Math.max(0, newY);
-        }
-        
-        // On last page, prevent dragging below page bottom
-        if (isLastPage) {
-          clampedY = Math.min(newY, pageHeight - height);
-        }
-
+        const clampedY = clampYPosition(newY, height);
         dispatch("update", {
           x: clampedX,
           y: clampedY
@@ -188,18 +177,7 @@
 
       // For scaling, check bounds
       if (isWithinHorizontalBounds(newX, newWidth)) {
-        let clampedY = newY;
-        
-        // On first page, prevent scaling above page top
-        if (isFirstPage) {
-          clampedY = Math.max(0, newY);
-        }
-        
-        // On last page, prevent scaling below page bottom
-        if (isLastPage) {
-          clampedY = Math.min(newY, pageHeight - newHeight);
-        }
-
+        const clampedY = clampYPosition(newY, newHeight);
         dispatch("update", {
           x: newX,
           y: clampedY,
@@ -209,18 +187,7 @@
       } else {
         // If scaling would exceed horizontal bounds, clamp width and position
         const clampedX = Math.max(0, Math.min(newX, pageWidth - newWidth));
-        let clampedY = newY;
-        
-        // On first page, prevent scaling above page top
-        if (isFirstPage) {
-          clampedY = Math.max(0, newY);
-        }
-        
-        // On last page, prevent scaling below page bottom
-        if (isLastPage) {
-          clampedY = Math.min(newY, pageHeight - newHeight);
-        }
-
+        const clampedY = clampYPosition(newY, newHeight);
         dispatch("update", {
           x: clampedX,
           y: clampedY,
@@ -247,7 +214,7 @@
   }
   function handlePanStart(event) {
     dispatch('activate');
-    
+
     startX = event.detail.x;
     startY = event.detail.y;
     if (event.detail.target === event.currentTarget) {

@@ -10,5 +10,10 @@
     "msgNoFilesFound": "No se encontraron archivos",
     "btnCancel": "Cancelar",
     "lblLoading": "Cargando...",
-    "btnDone": "Listo"
-} 
+    "btnDone": "Listo",
+    "lblEMRId": "ID EMR",
+    "lblGender": "Género",
+    "lblPhone": "Teléfono",
+    "lblEmail": "Correo electrónico",
+    "lblAddress": "Dirección"
+}

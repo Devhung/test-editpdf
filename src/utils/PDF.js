@@ -1,10 +1,10 @@
 import { readAsArrayBuffer } from './asyncReader.js';
 import { fetchFont, getAsset } from './prepareAssets';
-import { noop, sendMessageToApp } from './helper.js';
+import { noop, sendMessageToApp, checkEnvironment } from './helper.js';
+import { DEFAULT_SCALE } from '../config/constants.js';
 
 export async function save(pdfFile, objects, name) {
   const PDFLib = await getAsset('PDFLib');
-  const download = await getAsset('download');
   const makeTextPDF = await getAsset('makeTextPDF');
   let pdfDoc;
   try {
@@ -17,9 +17,16 @@ export async function save(pdfFile, objects, name) {
     const pageObjects = objects[pageIndex];
     // 'y' starts from bottom in PDFLib, use this to calculate y
     const pageHeight = page.getHeight();
+
     const embedProcesses = pageObjects.map(async (object) => {
       if (object.type === 'image') {
         let { file, x, y, width, height } = object;
+        // Convert back from scaled dimensions
+        const unscaledX = x / DEFAULT_SCALE;
+        const unscaledY = y / DEFAULT_SCALE;
+        const unscaledWidth = width / DEFAULT_SCALE;
+        const unscaledHeight = height / DEFAULT_SCALE;
+
         let img;
         try {
           if (file.type === 'image/jpeg') {
@@ -29,39 +36,61 @@ export async function save(pdfFile, objects, name) {
           }
           return () =>
             page.drawImage(img, {
-              x,
-              y: pageHeight - y - height,
-              width,
-              height,
+              x: unscaledX,
+              y: pageHeight - unscaledY - unscaledHeight,
+              width: unscaledWidth,
+              height: unscaledHeight,
             });
         } catch (e) {
           console.log('Failed to embed image.', e);
           return noop;
         }
       } else if (object.type === 'text') {
-        let { x, y, lines, lineHeight, size, fontFamily, width } = object;
-        const height = size * lineHeight * lines.length;
-        const font = await fetchFont(fontFamily);
+        let { x, y, lines, lineHeight, size, fontFamily, width, isBold, isItalic } = object;
+        // Convert back from scaled dimensions
+        const unscaledX = x / DEFAULT_SCALE;
+        const unscaledY = y / DEFAULT_SCALE;
+        const unscaledSize = size / DEFAULT_SCALE;
+        const unscaledWidth = width;
+
+        const height = unscaledSize * lineHeight * lines.length;
+
+        // Determine the correct font family based on text style
+        let actualFontFamily = fontFamily;
+        if (isBold && isItalic) {
+          actualFontFamily = `${fontFamily}-BoldItalic`;
+        } else if (isBold) {
+          actualFontFamily = `${fontFamily}-Bold`;
+        } else if (isItalic) {
+          actualFontFamily = `${fontFamily}-Italic`;
+        }
+
+        const font = await fetchFont(actualFontFamily);
         const [textPage] = await pdfDoc.embedPdf(
           await makeTextPDF({
             lines,
-            fontSize: size,
+            fontSize: unscaledSize,
             lineHeight,
-            width,
+            width: unscaledWidth,
             height,
-            font: font.buffer || fontFamily, // built-in font family
-            dy: font.correction(size, lineHeight),
+            font: font.buffer || actualFontFamily, // built-in font family or custom font
+            dy: font.correction(unscaledSize, lineHeight),
           }),
         );
         return () =>
           page.drawPage(textPage, {
-            width,
+            width: unscaledWidth,
             height,
-            x,
-            y: pageHeight - y - height,
+            x: unscaledX,
+            y: pageHeight - unscaledY - height,
           });
       } else if (object.type === 'drawing') {
         let { x, y, path, scale } = object;
+        // Convert back from scaled dimensions
+        const unscaledX = x / DEFAULT_SCALE;
+        const unscaledY = y / DEFAULT_SCALE;
+        const unscaledScale = scale / DEFAULT_SCALE;
+
         const {
           pushGraphicsState,
           setLineCap,
@@ -77,10 +106,10 @@ export async function save(pdfFile, objects, name) {
             setLineJoin(LineJoinStyle.Round),
           );
           page.drawSvgPath(path, {
-            borderWidth: 5,
-            scale,
-            x,
-            y: pageHeight - y,
+            borderWidth: 5 / DEFAULT_SCALE,
+            scale: unscaledScale,
+            x: unscaledX,
+            y: pageHeight - unscaledY,
           });
           page.pushOperators(popGraphicsState());
         };
@@ -93,14 +122,30 @@ export async function save(pdfFile, objects, name) {
   await Promise.all(pagesProcesses);
   try {
     const pdfBytes = await pdfDoc.save();
-    const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
-    sendMessageToApp({
-      type: "PDF_SAVED",
-      data: pdfBlob,
-    });
-    // download(pdfBytes, name, 'application/pdf');
+    const base64Data = bytesToBase64(pdfBytes);
+    const environment = checkEnvironment();
+    if(environment === "react-native-webview"){
+      sendMessageToApp({
+        type: "PDF_SAVED",
+        data: base64Data,
+      });
+    } else if (environment === "iframe"){
+      const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+      sendMessageToApp({
+        type: "PDF_SAVED",
+        data: pdfBlob,
+      });
+    } else {
+      const download = await getAsset('download');
+      download(pdfBytes, name, 'application/pdf');
+    }
   } catch (e) {
     console.log('Failed to save PDF.');
     throw e;
   }
+}
+
+export function bytesToBase64(bytes) {
+  const binString = Array.from(bytes, (byte) => String.fromCharCode(byte)).join('');
+  return btoa(binString);
 }

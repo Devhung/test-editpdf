@@ -5,7 +5,7 @@
   import Toolbar from "./Toolbar.svelte";
   import { pannable } from "./utils/pannable.js";
   import { tapout } from "./utils/tapout.js";
-  import { timeout } from "./utils/helper.js";
+  import { timeout, formatDate } from "./utils/helper.js";
   import { Fonts } from "./utils/prepareAssets.js";
   export let size;
   export let text;
@@ -19,7 +19,14 @@
   export let pageHeight = 0;
   export let isDateField = false;
   export let dateFormats = [];
-  const Families = Object.keys(Fonts);
+  export let isLastPage = false;
+  export let isFirstPage = false;
+  export let isBold = false;
+  export let isItalic = false;
+  export let isUnderline = false;
+  const Families = Object.entries(Fonts)
+    .filter(([_, font]) => font.isDisplay === true)
+    .map(([name]) => name);
   const dispatch = createEventDispatcher();
   let startX;
   let startY;
@@ -31,7 +38,20 @@
   let dy = 0;
   let operation = "";
   let lastMoveTime = 0;
+  let clickTimeout = null;
   const THROTTLE_MS = 16;
+  const DOUBLE_CLICK_DELAY = 300; // 300ms for double click detection
+
+  // Helper function to clamp Y position based on page constraints
+  function clampYPosition(y, elementHeight) {
+    if (isFirstPage) {
+      return Math.max(0, y);
+    }
+    if (isLastPage) {
+      return Math.min(y, pageHeight - elementHeight);
+    }
+    return y;
+  }
 
   function isWithinBounds(newX, newY, elementWidth, elementHeight) {
     return (
@@ -47,6 +67,8 @@
   }
 
   function handlePanMove(event) {
+    if (operation !== "move") return; // Only move if in move operation
+
     const currentTime = Date.now();
     if (currentTime - lastMoveTime < THROTTLE_MS) return;
     lastMoveTime = currentTime;
@@ -60,19 +82,22 @@
     const newX = x + dx;
     const newY = y + dy;
     const elementWidth = editable.clientWidth;
+    const elementHeight = editable.clientHeight;
 
-    // Only check horizontal bounds
+    // If within horizontal bounds, only clamp Y
     if (isWithinHorizontalBounds(newX, elementWidth)) {
+      const clampedY = clampYPosition(newY, elementHeight);
       dispatch("update", {
         x: newX,
-        y: newY,
+        y: clampedY,
       });
     } else {
-      // If outside horizontal bounds, clamp only the x position
+      // If outside horizontal bounds, clamp both X and Y
       const clampedX = Math.max(0, Math.min(newX, pageWidth - elementWidth));
+      const clampedY = clampYPosition(newY, elementHeight);
       dispatch("update", {
         x: clampedX,
-        y: newY,
+        y: clampedY,
       });
     }
 
@@ -80,43 +105,80 @@
     dy = 0;
     operation = "";
   }
+
   function handlePanStart(event) {
     dispatch("activate");
+    if (operation === "edit") return; // Don't start moving if editing
 
     startX = event.detail.x;
     startY = event.detail.y;
     operation = "move";
   }
+
   function onFocus() {
     dispatch("activate");
-    operation = "edit";
   }
+
   function onClick(event) {
+    if (operation === "edit") return; // Ignore clicks when editing
+
+    if (clickTimeout) {
+      // Double click detected
+      clearTimeout(clickTimeout);
+      clickTimeout = null;
+      onDoubleClick(event);
+    } else {
+      // First click - wait for potential second click
+      clickTimeout = setTimeout(() => {
+        clickTimeout = null;
+        onSingleClick(event);
+      }, DOUBLE_CLICK_DELAY);
+    }
+  }
+
+  function onSingleClick(event) {
     if (!isActive) {
       dispatch("activate");
     }
-    operation = "edit";
+    // Single click only activates for moving
+    operation = "move";
   }
+
+  function onDoubleClick(event) {
+    if (!isActive) {
+      dispatch("activate");
+    }
+    // Double click enables editing
+    operation = "edit";
+    editable.focus();
+  }
+
   async function onBlur() {
     if (operation !== "edit" || operation === "tool") return;
     editable.blur();
     window.getSelection().removeAllRanges();
-    
-    // Check if text field is empty
+
     const lines = extractLines();
     const hasContent = lines.some(line => line.trim().length > 0);
-    
+
     if (!hasContent) {
       dispatch("delete");
       return;
     }
 
+    const updatedText = lines.join('\n');
+
     dispatch("update", {
+      text: updatedText,
       lines: lines,
       width: editable.clientWidth,
+      isBold,
+      isItalic,
+      isUnderline
     });
     operation = "";
   }
+
   async function onPaste(e) {
     // get text only
     const pastedText = e.clipboardData.getData("text");
@@ -125,15 +187,37 @@
     await timeout();
     sanitize();
   }
+
   function onKeydown(e) {
-    const childNodes = Array.from(editable.childNodes);
-    if (e.keyCode === 13) {
-      // prevent default adding div behavior
+    // Handle text formatting shortcuts
+    if (e.ctrlKey || e.metaKey) {
+      switch(e.key.toLowerCase()) {
+        case 'b':
+          e.preventDefault();
+          isBold = !isBold;
+          updateTextStyle();
+          break;
+        case 'i':
+          e.preventDefault();
+          isItalic = !isItalic;
+          updateTextStyle();
+          break;
+        case 'u':
+          e.preventDefault();
+          isUnderline = !isUnderline;
+          updateTextStyle();
+          break;
+      }
+    }
+
+    // Existing enter key handling
+    if (e.key === 'Enter') {
       e.preventDefault();
       const selection = window.getSelection();
       const focusNode = selection.focusNode;
       const focusOffset = selection.focusOffset;
-      // the caret is at an empty line
+      const childNodes = Array.from(editable.childNodes);
+
       if (focusNode === editable) {
         editable.insertBefore(
           document.createElement("br"),
@@ -141,11 +225,8 @@
         );
       } else if (focusNode instanceof HTMLBRElement) {
         editable.insertBefore(document.createElement("br"), focusNode);
-      }
-      // the caret is at a text line but not end
-      else if (focusNode.textContent.length !== focusOffset) {
+      } else if (focusNode.textContent.length !== focusOffset) {
         document.execCommand("insertHTML", false, "<br>");
-        // the carat is at the end of a text line
       } else {
         let br = focusNode.nextSibling;
         if (br) {
@@ -154,14 +235,15 @@
           br = editable.appendChild(document.createElement("br"));
           br = editable.appendChild(document.createElement("br"));
         }
-        // set selection to new line
         selection.collapse(br, 0);
       }
     }
   }
+
   function onFocusTool() {
     operation = "tool";
   }
+
   async function onBlurTool() {
     if (operation !== "tool" || operation === "edit") return;
     dispatch("update", {
@@ -172,6 +254,7 @@
     });
     operation = "";
   }
+
   function sanitize() {
     let weirdNode;
     while (
@@ -182,23 +265,46 @@
       editable.removeChild(weirdNode);
     }
   }
+
   function onChangeFont() {
     dispatch("selectFont", {
       name: _fontFamily,
     });
   }
+
   function render() {
     if (isDateField && text) {
-      // For date fields, format the display but keep original value
-      const defaultFormat = dateFormats && dateFormats.length > 0 
-        ? dateFormats[0].value 
+      const defaultFormat = dateFormats && dateFormats.length > 0
+        ? dateFormats[0].value
         : 'yyyy-MM-dd HH:mm';
-      editable.innerHTML = formatDate(defaultFormat);
+      editable.innerHTML = formatDate(text, defaultFormat);
     } else {
-      editable.innerHTML = text;
+      editable.innerHTML = text ? text.replace(/\n/g, '<br>') : '';
     }
-    editable.focus();
+
+    // Apply text styles
+    editable.style.fontWeight = isBold ? 'bold' : 'normal';
+    editable.style.fontStyle = isItalic ? 'italic' : 'normal';
+    editable.style.textDecoration = isUnderline ? 'underline' : 'none';
+
+    // Auto start editing if this is a new text field
+    startEditing();
   }
+
+  function startEditing() {
+    if (!isActive) {
+      dispatch("activate");
+    }
+    operation = "edit";
+    editable.focus();
+    // Select all text for easy replacement
+    const range = document.createRange();
+    range.selectNodeContents(editable);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
   function extractLines() {
     const nodes = editable.childNodes;
     const lines = [];
@@ -212,67 +318,24 @@
         lineText += node.textContent;
       }
     }
-    lines.push(lineText);
-    return lines;
+    if (lineText) {
+      lines.push(lineText);
+    }
+    return lines.map(line => line.trim()).filter(line => line.length > 0);
   }
+
   function onDelete() {
     dispatch("delete");
   }
-  function formatDate(format) {
-    try {
-      // Parse the stored ISO date string
-      const targetDate = new Date(text);
-      
-      if (isNaN(targetDate.getTime())) {
-        throw new Error('Invalid date');
-      }
 
-      const pad = (num) => String(num).padStart(2, '0');
-      
-      // Get date components in the correct timezone
-      const year = targetDate.getFullYear();
-      const month = pad(targetDate.getMonth() + 1);
-      const day = pad(targetDate.getDate());
-      const hours24 = targetDate.getHours();
-      const hours12 = hours24 % 12 || 12;
-      const minutes = pad(targetDate.getMinutes());
-      const ampm = hours24 >= 12 ? 'PM' : 'AM';
 
-      // Format the date according to the pattern
-      const formatDateTime = (pattern) => {
-        let result = pattern
-          .replace('YYYY', year)
-          .replace('yyyy', year)
-          .replace('MM', month)
-          .replace('dd', day)
-          .replace('DD', day)
-          .replace('HH', pad(hours24))
-          .replace('hh', pad(hours12))
-          .replace('mm', minutes)
-          .replace('a', ampm)
-          .replace('A', ampm);
-        
-        console.log("Format pattern:", pattern);
-        console.log("Formatted result:", result);
-        return result;
-      };
-
-      return formatDateTime(format);
-    } catch (error) {
-      console.error('Date formatting error:', error);
-      return text; // Return original text if formatting fails
-    }
-  }
   function updateDateFormat(event) {
     const newFormat = event.target.value;
-    console.log("Selected new format:", newFormat);
-    
-    const formattedDate = formatDate(newFormat);
-    console.log("Formatted date result:", formattedDate);
-    
+    const formattedDate = formatDate(text, newFormat);
+
     // Only update display text, keep original ISO string in text prop
     editable.innerHTML = formattedDate;
-    
+
     // Dispatch update to parent
     dispatch("update", {
       width: editable.clientWidth,
@@ -280,10 +343,52 @@
       format: newFormat
     });
   }
-  onMount(render);
+
+  function updateTextStyle() {
+    // Update text style and dispatch changes
+    dispatch("update", {
+      isBold,
+      isItalic,
+      isUnderline,
+      lines: extractLines(),
+      width: editable.clientWidth,
+    });
+
+    // Update visual style
+    editable.style.fontWeight = isBold ? 'bold' : 'normal';
+    editable.style.fontStyle = isItalic ? 'italic' : 'normal';
+    editable.style.textDecoration = isUnderline ? 'underline' : 'none';
+  }
+
+  onMount(() => {
+    render();
+    // Add input event listener for real-time updates
+    editable.addEventListener('input', handleInput);
+    return () => {
+      editable.removeEventListener('input', handleInput);
+    };
+  });
+
+  function handleInput(event) {
+    const lines = extractLines();
+    const updatedText = lines.join('\n');
+
+    dispatch("update", {
+      text: updatedText,
+      lines: lines,
+      width: editable.clientWidth,
+      isBold,
+      isItalic,
+      isUnderline
+    });
+  }
 </script>
 
 {#if operation && isActive}
+  <div
+    style="background-color: rgba(255, 255, 255, 0.7);"
+    class="fixed inset-0 backdrop-blur-[2px] z-40"
+  />
   <Toolbar>
     <div
       use:tapout
@@ -291,9 +396,9 @@
       on:mousedown={onFocusTool}
       on:touchstart={onFocusTool}
       class="h-full flex justify-center items-center bg-gray-300 border-b
-      border-gray-400"
+      border-gray-400 relative z-50 overflow-x-auto"
     >
-      <div class="mr-2 flex items-center">
+      <div class="mr-2 flex items-center min-w-5">
         <img src="/line_height.svg" class="w-6 mr-2" alt="Line height" />
         <input
           type="number"
@@ -304,7 +409,7 @@
           bind:value={_lineHeight}
         />
       </div>
-      <div class="mr-2 flex items-center">
+      <div class="mr-2 flex items-center min-w-5">
         <img src="/text.svg" class="w-6 mr-2" alt="Font size" />
         <input
           type="number"
@@ -315,7 +420,7 @@
           bind:value={_size}
         />
       </div>
-      <div class="mr-2 flex items-center">
+      <div class="mr-2 flex items-center min-w-5 ">
         <img src="/text-family.svg" class="w-4 mr-2" alt="Font family" />
         <div class="relative w-32 md:w-40">
           <select
@@ -345,7 +450,7 @@
         </div>
       </div>
       {#if isDateField}
-        <div class="mr-2 flex items-center">
+        <div class="mr-2 flex items-center min-w-10">
           <img src="/calendar.png" class="w-4 mr-2" alt="Date format" />
           <div class="relative w-[10rem] md:w-48">
             <select
@@ -376,7 +481,7 @@
       {/if}
       <div
         on:click={onDelete}
-        class="w-5 h-5 rounded-full bg-white cursor-pointer"
+        class="w-5 h-5 rounded-full bg-white cursor-pointer min-w-1"
       >
         <img class="w-full h-full" src="/delete.svg" alt="delete object" />
       </div>
@@ -395,12 +500,25 @@
     on:panmove={handlePanMove}
     on:panend={handlePanEnd}
     on:click={onClick}
-    class="absolute w-full h-full border border-dotted
-    border-gray-500"
+    on:dblclick|stopPropagation
+    class="absolute w-full h-full"
+    class:border={isActive}
+    class:border-gray-400={isActive}
+    class:border-dashed={isActive}
     class:cursor-grab={!operation}
     class:cursor-grabbing={operation === "move"}
-    class:editing={isActive && ["edit", "tool"].includes(operation)}
+    class:cursor-text={operation === "edit"}
+    class:operation={isActive}
   />
+  {#if isActive}
+    <div
+      on:click={onDelete}
+      class="absolute w-4 h-4 md:w-3 md:h-3 rounded-full
+      cursor-pointer shadow-md right-0 top-[-4px] transform translate-x-1/2 -translate-y-1/2 z-10"
+    >
+      <img class="w-full h-full" src="/delete.svg" alt="delete object" />
+    </div>
+  {/if}
   <div
     bind:this={editable}
     on:focus={onFocus}
@@ -409,17 +527,25 @@
     on:paste|preventDefault={onPaste}
     contenteditable="true"
     spellcheck="false"
-    class="outline-none whitespace-no-wrap"
-    style="font-size: {_size}px; font-family: '{_fontFamily}', serif;
-    line-height: {_lineHeight}; -webkit-user-select: text;"
+    class="outline-none whitespace-no-wrap relative"
+    class:pointer-events-none={operation !== "edit"}
+    style="font-size: {_size}px;
+    font-family: '{isBold && isItalic ? `${_fontFamily}-BoldItalic` :
+                   isBold ? `${_fontFamily}-Bold` :
+                   isItalic ? `${_fontFamily}-Italic` : _fontFamily}', serif;
+    line-height: {_lineHeight};
+    -webkit-user-select: text;"
   />
 </div>
 
 <style>
-  .editing {
-    @apply pointer-events-none border-gray-800 border-dashed;
+  .operation {
+    background-color: rgba(0, 0, 0, 0.1);
   }
   .font-family {
     @apply block appearance-none h-6 w-full bg-white pl-2 pr-8 rounded-sm leading-tight;
+  }
+  .cursor-text {
+    cursor: text !important;
   }
 </style>

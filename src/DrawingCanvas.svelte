@@ -3,7 +3,7 @@
   import { pannable } from "./utils/pannable.js";
   const dispatch = createEventDispatcher();
   import { _, changeLanguage } from "./i18n";
-  
+
   let canvas;
   let x = 0;
   let y = 0;
@@ -14,6 +14,9 @@
   let maxY = 0;
   let paths = [];
   let drawing = false;
+
+  $: hasDrawing = paths.length > 0;
+
   function handlePanStart(event) {
     if (event.detail.target !== canvas) {
       return (drawing = false);
@@ -25,9 +28,10 @@
     maxX = Math.max(maxX, x);
     minY = Math.min(minY, y);
     maxY = Math.max(maxY, y);
-    paths.push(["M", x, y]);
-    path += `M${x},${y}`;
+    paths = [...paths, ["M", x, y]];
+    path = path + `M${x},${y}`;
   }
+
   function handlePanMove(event) {
     if (!drawing) return;
     x = event.detail.x;
@@ -36,12 +40,14 @@
     maxX = Math.max(maxX, x);
     minY = Math.min(minY, y);
     maxY = Math.max(maxY, y);
-    paths.push(["L", x, y]);
-    path += `L${x},${y}`;
+    paths = [...paths, ["L", x, y]];
+    path = path + `L${x},${y}`;
   }
+
   function handlePanEnd() {
     drawing = false;
   }
+
   function finish() {
     if (!paths.length) return;
     const dx = -(minX - 10);
@@ -56,8 +62,21 @@
       }, "")
     });
   }
+
   function cancel() {
     dispatch("cancel");
+  }
+
+  function clearDrawing() {
+    paths = [];
+    path = "";
+    x = 0;
+    y = 0;
+    minX = Infinity;
+    maxX = 0;
+    minY = Infinity;
+    maxY = 0;
+    drawing = false;
   }
 </script>
 
@@ -71,14 +90,27 @@
   <div class="absolute right-0 bottom-0 mr-4 mb-4 flex">
     <button
       on:click={cancel}
-      class="w-[4rem] bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-4
-      rounded mr-4 focus:outline-none">
+      class="w-[4rem] bg-red-500 hover:bg-red-700 text-white font-normal py-1 px-4
+      rounded mr-2 focus:outline-none">
       {$_("btnCancel")}
     </button>
     <button
+      on:click={clearDrawing}
+      class="w-[4rem] bg-white text-gray-800 font-normal py-1 px-4
+      rounded mr-2 focus:outline-none border border-gray-600 border-dashed"
+      class:opacity-50={!hasDrawing}
+      class:cursor-not-allowed={!hasDrawing}
+      disabled={!hasDrawing}>
+      {$_("btnClear")}
+    </button>
+    <button
       on:click={finish}
-      class="w-[4rem] bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-4
-      rounded focus:outline-none">
+      style="background-color: #1677ff;"
+      class="w-[4rem] text-white font-normal py-1 px-4 rounded focus:outline-none
+      hover:bg-blue-600 transition-colors duration-200"
+      class:opacity-50={!hasDrawing}
+      class:cursor-not-allowed={!hasDrawing}
+      disabled={!hasDrawing}>
       {$_("btnDone")}
     </button>
   </div>
