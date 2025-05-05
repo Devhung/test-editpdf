@@ -15,5 +15,7 @@
     "lblGender": "Giới tính",
     "lblPhone": "Điện thoại",
     "lblEmail": "Email",
-    "lblAddress": "Địa chỉ"
+    "lblAddress": "Địa chỉ",
+    "msgRequiredFields": "Vui lòng thêm thông tin cần thiết: {{fields}}",
+    "lblOr": "hoặc"
 }

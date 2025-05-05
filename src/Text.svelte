@@ -24,6 +24,8 @@
   export let isBold = false;
   export let isItalic = false;
   export let isUnderline = false;
+  export let isReadOnly = false;
+  export let defaultOperation = "edit";
   const Families = Object.entries(Fonts)
     .filter(([_, font]) => font.isDisplay === true)
     .map(([name]) => name);
@@ -148,9 +150,11 @@
     if (!isActive) {
       dispatch("activate");
     }
-    // Double click enables editing
-    operation = "edit";
-    editable.focus();
+    // Only enter edit mode if not readonly
+    if (!isReadOnly) {
+      operation = "edit";
+      editable.focus();
+    }
   }
 
   async function onBlur() {
@@ -295,14 +299,19 @@
     if (!isActive) {
       dispatch("activate");
     }
-    operation = "edit";
-    editable.focus();
-    // Select all text for easy replacement
-    const range = document.createRange();
-    range.selectNodeContents(editable);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
+    // Set operation based on defaultOperation
+    operation = defaultOperation;
+
+    // Only focus and select text if in edit mode
+    if (operation === "edit") {
+      editable.focus();
+      // Select all text for easy replacement
+      const range = document.createRange();
+      range.selectNodeContents(editable);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
   }
 
   function extractLines() {
@@ -364,6 +373,10 @@
     render();
     // Add input event listener for real-time updates
     editable.addEventListener('input', handleInput);
+
+    // Set initial operation
+    operation = defaultOperation;
+
     return () => {
       editable.removeEventListener('input', handleInput);
     };
@@ -491,25 +504,26 @@
 <div
   use:tapout
   on:tapout={onBlur}
-  class="absolute left-0 top-0 select-none"
-  style="transform: translate({x + dx}px, {y + dy}px);"
+  class="absolute left-0 top-0 select-none cursor-move"
+  class:cursor-text={operation === "edit"}
+  class:read-only={isReadOnly}
+  class:operation={operation === "edit" || isActive}
+  style="
+    transform: translate({x + dx}px, {y + dy}px);
+    font-family: {_fontFamily};
+    font-size: {_size}px;
+    line-height: {_lineHeight};
+    {isBold ? 'font-weight: bold;' : ''}
+    {isItalic ? 'font-style: italic;' : ''}
+    {isUnderline ? 'text-decoration: underline;' : ''}
+  "
+  use:pannable
+  on:panstart={handlePanStart}
+  on:panmove={handlePanMove}
+  on:panend={handlePanEnd}
+  on:focus={onFocus}
+  on:click={onClick}
 >
-  <div
-    use:pannable
-    on:panstart={handlePanStart}
-    on:panmove={handlePanMove}
-    on:panend={handlePanEnd}
-    on:click={onClick}
-    on:dblclick|stopPropagation
-    class="absolute w-full h-full"
-    class:border={isActive}
-    class:border-gray-400={isActive}
-    class:border-dashed={isActive}
-    class:cursor-grab={!operation}
-    class:cursor-grabbing={operation === "move"}
-    class:cursor-text={operation === "edit"}
-    class:operation={isActive}
-  />
   {#if isActive}
     <div
       on:click={onDelete}
@@ -529,12 +543,6 @@
     spellcheck="false"
     class="outline-none whitespace-no-wrap relative"
     class:pointer-events-none={operation !== "edit"}
-    style="font-size: {_size}px;
-    font-family: '{isBold && isItalic ? `${_fontFamily}-BoldItalic` :
-                   isBold ? `${_fontFamily}-Bold` :
-                   isItalic ? `${_fontFamily}-Italic` : _fontFamily}', serif;
-    line-height: {_lineHeight};
-    -webkit-user-select: text;"
   />
 </div>
 
@@ -542,10 +550,25 @@
   .operation {
     background-color: rgba(0, 0, 0, 0.1);
   }
+  .operation-edit {
+    background-color: rgba(37, 99, 235, 0.1); /* Light blue background */
+    border: 1px solid rgba(37, 99, 235, 0.2); /* Light blue border */
+    border-radius: 4px; /* Rounded corners */
+    padding: 4px 8px; /* Add some padding */
+  }
   .font-family {
     @apply block appearance-none h-6 w-full bg-white pl-2 pr-8 rounded-sm leading-tight;
   }
   .cursor-text {
     cursor: text !important;
+  }
+  .read-only {
+    opacity: 0.8;
+    cursor: move !important;
+    user-select: none;
+  }
+
+  .read-only:hover {
+    opacity: 1;
   }
 </style>

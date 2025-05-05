@@ -1,4 +1,4 @@
-import { addMessages, init, getLocaleFromNavigator, _ } from 'svelte-i18n';
+import { addMessages, init, getLocaleFromNavigator, _ , locale} from 'svelte-i18n';
 
 // Import translations
 import en from './en.json';
@@ -18,18 +18,23 @@ addMessages('fr-CA', frCA);
 addMessages('es', es);
 addMessages('pt', pt);
 
+const defaultLanguage = 'en';
+
 // Initialize i18n with default settings
 init({
-    fallbackLocale: 'en',
-    initialLocale: 'en'
+    fallbackLocale: defaultLanguage,
+    initialLocale: defaultLanguage
 });
+
+
 
 // Function to change language
 export function changeLanguage(locale) {
-    init({
-        fallbackLocale: 'en',
-        initialLocale: locale
-    });
+  locale.set(locale);
+    // init({
+    //     fallbackLocale: 'en',
+    //     initialLocale: locale
+    // });
 }
 
-export { _ }; 
+export { _ ,locale};

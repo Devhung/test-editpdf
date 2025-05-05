@@ -16,9 +16,15 @@
     readAsPDF,
     readAsDataURL,
   } from "./utils/asyncReader.js";
-  import { ggID, sendMessageToApp, checkEnvironment, formatDate  } from "./utils/helper.js";
+  import {
+    ggID,
+    sendMessageToApp,
+    checkEnvironment,
+    formatDate,
+  } from "./utils/helper.js";
   import { save } from "./utils/PDF.js";
-  import { _, changeLanguage } from "./i18n";
+  import { _, changeLanguage, locale } from "./i18n";
+  import Toast from "./components/Toast.svelte";
   const genID = ggID();
   let pdfFile;
   let pdfName = "";
@@ -53,17 +59,60 @@
     addDrawing: true,
     addDate: {
       enabled: true,
-      formats: null, // If null, will use defaultDateTimeFormats
-      timezone: 0, // Default timezone offset
-      defaultFormat: null, // If null, will use first format from formats list
+      formats: null,
+      timezone: 0,
+      defaultFormat: null,
     },
     savePDF: true,
     cancel: false,
     patient: {
-      showInfo: false,
+      showInfo: true,
       allowCreate: false,
+      isReadOnly: true,
     },
     allowDropFile: false,
+    required: {
+      // Patient fields
+      patientIdentifiers: ["fullName", "emrId"], // Require either fullName or emrId
+      signature: true, // Require signature drawing
+      dateSignature: true, // Require date field
+
+      // Messages for each field type
+      messages: {
+        fullName: {
+          en: "Full name",
+          de: "Vollständiger Name",
+          es: "Nombre completo",
+          fr: "Nom complet",
+          pt: "Nome completo",
+          vi: "Họ và tên",
+        },
+        emrId: {
+          en: "EMR ID",
+          de: "EMR-ID",
+          es: "ID EMR",
+          fr: "ID EMR",
+          pt: "ID EMR",
+          vi: "EMR ID",
+        },
+        signature: {
+          en: "Signature",
+          de: "Unterschrift",
+          es: "Firma",
+          fr: "Signature",
+          pt: "Assinatura",
+          vi: "Chữ ký",
+        },
+        dateSignature: {
+          en: "Date signature",
+          de: "Datumssignatur",
+          es: "Firma",
+          fr: "Signature",
+          pt: "Assinatura",
+          vi: "Ngày ký",
+        },
+      },
+    },
   };
 
   // Add patient info states
@@ -78,6 +127,9 @@
     address: "",
   };
 
+  let toastMessage = "";
+  let showToast = false;
+
   // Function to safely get patient info value
   function getPatientValue(key) {
     return patientInfo && patientInfo[key] ? patientInfo[key] : "";
@@ -87,7 +139,7 @@
   function addPatientTextField(key) {
     if (selectedPageIndex >= 0) {
       const value = getPatientValue(key);
-      addTextField(value);
+      addTextField(value, showTools.patient.isReadOnly, "move", true, key);
       showPatientDropdown = false;
     }
   }
@@ -132,21 +184,25 @@
   // Function to get active date formats
   function getActiveDateFormats() {
     let formats = [];
-    if(showTools.addDate.defaultFormat) {
-      formats = [...formats, {
-        label: showTools.addDate.defaultFormat,
-        value: showTools.addDate.defaultFormat,
-      }];
+    if (showTools.addDate.defaultFormat) {
+      formats = [
+        ...formats,
+        {
+          label: showTools.addDate.defaultFormat,
+          value: showTools.addDate.defaultFormat,
+        },
+      ];
     }
     if (showTools.addDate.formats) {
       formats = [...formats, ...showTools.addDate.formats];
-    }else{
+    } else {
       formats = [...formats, ...defaultDateTimeFormats];
     }
 
     // Combine both arrays and remove duplicates based on value
-    const uniqueFormats = formats.filter((format, index, self) =>
-      index === self.findIndex((f) => f.value === format.value)
+    const uniqueFormats = formats.filter(
+      (format, index, self) =>
+        index === self.findIndex((f) => f.value === format.value),
     );
 
     return uniqueFormats;
@@ -377,22 +433,27 @@
 
   function onAddTextField() {
     if (selectedPageIndex >= 0) {
-      addTextField();
+      addTextField("New Text Field", false, "edit");
     }
   }
 
-  function addTextField(text = "New Text Field") {
+  function addTextField(
+    text = "New Text Field",
+    isReadOnly = false,
+    defaultOperation = "edit",
+    isPatientField = false,
+    fieldType = null,
+  ) {
     const id = genID();
     fetchFont(currentFont);
-    // Create a temporary canvas to measure text width
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const fontSize = 10 * DEFAULT_SCALE;
     const lineHeight = 1.2;
 
-    ctx.font = `${fontSize}px ${currentFont}`; // match the font size and family
+    ctx.font = `${fontSize}px ${currentFont}`;
     const textWidth = ctx.measureText(text).width;
-    const textHeight = fontSize * lineHeight; // fontSize * lineHeight
+    const textHeight = fontSize * lineHeight;
 
     const object = {
       id,
@@ -403,15 +464,18 @@
       lineHeight: lineHeight,
       lines: [text],
       fontFamily: currentFont,
-      x: pagesDimensions[selectedPageIndex].width / 2 - textWidth / 2, // Center horizontally
-      y: pagesDimensions[selectedPageIndex].height / 2 - textHeight / 2, // Center vertically
+      x: pagesDimensions[selectedPageIndex].width / 2 - textWidth / 2,
+      y: pagesDimensions[selectedPageIndex].height / 2 - textHeight / 2,
+      isReadOnly,
+      defaultOperation,
+      isPatientField,
+      fieldType,
     };
 
     allObjects = allObjects.map((objects, pIndex) =>
       pIndex === selectedPageIndex ? [...objects, object] : objects,
     );
 
-    // Activate the text field immediately
     activeObjectId = id;
   }
 
@@ -537,14 +601,93 @@
     pagesScale[i] = scale;
   }
 
+  // Function to check required fields
+  function checkRequiredFields() {
+    const missingFields = [];
+    const { required } = showTools;
+
+    if (!required) return missingFields;
+    let currentLanguage = "en";
+    locale.subscribe(value => {
+      currentLanguage = value;
+    });
+
+    // Helper function to get message with fallback to English or key
+    const getMessage = (messageObj, key) => {
+      if (!messageObj) return key;
+      return messageObj[currentLanguage] || messageObj.en || key;
+    };
+
+    // Check patient identifiers - need only one of the fields
+    if (required.patientIdentifiers && required.patientIdentifiers.length > 0) {
+      const hasIdentifier = allObjects.some(pageObjects =>
+        pageObjects.some(obj =>
+          obj.type === "text" &&
+          obj.isPatientField &&
+          required.patientIdentifiers.includes(obj.fieldType)
+        )
+      );
+      if (!hasIdentifier) {
+        // Add all identifier field names from messages, joined with "or"
+        const identifierNames = required.patientIdentifiers
+          .map(field => getMessage(required.messages[field], field))
+          .join(" " + $_("lblOr") + " ");
+        missingFields.push(identifierNames);
+      }
+    }
+
+    // Check signature
+    if (required.signature) {
+      const hasSignature = allObjects.some(pageObjects =>
+        pageObjects.some(obj => obj.type === "drawing")
+      );
+      if (!hasSignature) {
+        missingFields.push(getMessage(required.messages.signature, "signature"));
+      }
+    }
+
+    // Check date signature
+    if (required.dateSignature) {
+      const hasDate = allObjects.some(pageObjects =>
+        pageObjects.some(obj => obj.isDateField)
+      );
+      if (!hasDate) {
+        missingFields.push(getMessage(required.messages.dateSignature, "dateSignature"));
+      }
+    }
+
+    return missingFields;
+  }
+
   // FIXME: Should wait all objects finish their async work
   async function savePDF() {
     if (!pdfFile || saving || !pages.length) return;
+
+    // Check required fields before saving
+    const missingFields = checkRequiredFields();
+    if (missingFields.length > 0) {
+
+      toastMessage = $_("msgRequiredFields").replace("{{fields}}", missingFields.join(", "));
+
+      showToast = true;
+
+      // Send message to parent about missing fields
+      sendMessageToApp({
+        type: "MISSING_REQUIRED_FIELDS",
+        data: {
+          fields: missingFields
+        }
+      });
+      return;
+    }
+
     saving = true;
     try {
       await save(pdfFile, allObjects, pdfName, pagesScale);
     } catch (e) {
       console.log(e);
+      toastMessage = $_("lblErrorSaving");
+      showToast = true;
     } finally {
       saving = false;
     }
@@ -587,7 +730,8 @@
       const textWidth = ctx.measureText(dateText).width; // Scale the width
       const textHeight = fontSize * lineHeight; // fontSize * lineHeight
 
-      const defaultFormat = getActiveDateFormats()[0].value ||'yyyy-MM-dd HH:mm';
+      const defaultFormat =
+        getActiveDateFormats()[0].value || "yyyy-MM-dd HH:mm";
       const object = {
         id,
         text: dateText,
@@ -595,13 +739,14 @@
         size: fontSize,
         width: textWidth,
         lineHeight: lineHeight,
-        lines: [formatDate(dateText,defaultFormat)],
+        lines: [formatDate(dateText, defaultFormat)],
         fontFamily: currentFont,
         x: pagesDimensions[selectedPageIndex].width / 2 - textWidth / 2, // Center horizontally
         y: pagesDimensions[selectedPageIndex].height / 2 - textHeight / 2, // Center vertically
         isDateField: true,
         timezone: timezone,
         rawValue: targetDate.toISOString(), // Store original value with timezone
+        defaultOperation: "move",
       };
 
       allObjects = allObjects.map((objects, pIndex) =>
@@ -636,12 +781,24 @@
 <main
   class="flex flex-col items-center py-16 bg-gray-100 min-h-screen relative"
 >
+  {#if showToast}
+    <Toast
+      message={toastMessage}
+      type="error"
+      duration={5000}
+      onClose={() => {
+        showToast = false;
+        toastMessage = "";
+      }}
+    />
+  {/if}
+
   {#if saving}
     <div
       style="background-color: rgba(255, 255, 255, 0.7);"
       class="fixed inset-0 bg-white/30 backdrop-blur-[2px] z-50 flex items-center justify-center"
     >
-      <div class=" px-8 py-4 flex flex-col items-center">
+      <div class="px-8 py-4 flex flex-col items-center">
         <Loading size="default" text={$_("lblSaving")} />
       </div>
     </div>
@@ -803,7 +960,7 @@
                   {/if}
                   {#if patientInfo.gender}
                     <button
-                      class="block w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
+                      class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
                       draggable="true"
                       on:click={() => addPatientTextField("gender")}
                     >
@@ -817,7 +974,7 @@
                   {/if}
                   {#if patientInfo.phone}
                     <button
-                      class="block w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
+                      class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
                       draggable="true"
                       on:click={() => addPatientTextField("phone")}
                     >
@@ -831,7 +988,7 @@
                   {/if}
                   {#if patientInfo.email}
                     <button
-                      class="block w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
+                      class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
                       draggable="true"
                       on:click={() => addPatientTextField("email")}
                     >
@@ -845,7 +1002,7 @@
                   {/if}
                   {#if patientInfo.address}
                     <button
-                      class="block w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
+                      class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
                       draggable="true"
                       on:click={() => addPatientTextField("address")}
                     >
@@ -903,9 +1060,6 @@
         style="background-color: rgb(22, 119, 255)"
         class="w-20 text-white font-normal py-1 px-3
           md:px-4 mr-3 md:mr-4 rounded focus:outline-none flex items-center justify-center"
-        class:opacity-50={!hasEditableObjects() || saving}
-        class:cursor-not-allowed={!hasEditableObjects() || saving}
-        disabled={!hasEditableObjects() || saving}
       >
         {$_("btnSave")}
       </button>
@@ -1002,6 +1156,8 @@
                     dateFormats={getActiveDateFormats()}
                     isLastPage={pIndex === pages.length - 1}
                     isFirstPage={pIndex === 0}
+                    isReadOnly={object.isReadOnly}
+                    defaultOperation={object.defaultOperation}
                   />
                 {:else if object.type === "drawing"}
                   <Drawing

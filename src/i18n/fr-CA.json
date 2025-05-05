@@ -15,5 +15,7 @@
     "lblGender": "Genre",
     "lblPhone": "Téléphone",
     "lblEmail": "Email",
-    "lblAddress": "Adresse"
+    "lblAddress": "Adresse",
+    "msgRequiredFields": "Veuillez remplir les champs requis: {{fields}}",
+    "lblOr": "ou"
 }
