@@ -144,7 +144,10 @@
       const value = getPatientValue(key);
       addTextField(
         value,
-        showTools.patient.isReadOnly ? showTools.patient.isReadOnly : true,
+        showTools.patient.isReadOnly === undefined ||
+          showTools.patient.isReadOnly === null
+            ? true
+            : showTools.patient.isReadOnly,
         "move",
         true,
         key,
@@ -803,9 +806,11 @@
         timezone: timezone,
         rawValue: targetDate.toISOString(), // Store original value with timezone
         defaultOperation: "move",
-        isReadOnly: showTools.addDate.isReadOnly
-          ? showTools.addDate.isReadOnly
-          : true,
+        isReadOnly:
+          showTools.addDate.isReadOnly === undefined ||
+          showTools.addDate.isReadOnly === null
+            ? true
+            : showTools.addDate.isReadOnly,
       };
 
       allObjects = allObjects.map((objects, pIndex) =>
@@ -838,7 +843,7 @@
 />
 <Tailwind />
 <main
-  class="flex flex-col items-center  bg-gray-100 min-h-screen relative"
+  class="flex flex-col items-center bg-gray-100 min-h-screen relative"
   class:py-16={showTools != null && showTools != undefined}
 >
   {#if showToast}
@@ -1219,7 +1224,12 @@
                     dateFormats={getActiveDateFormats()}
                     isLastPage={pIndex === pages.length - 1}
                     isFirstPage={pIndex === 0}
-                    isReadOnly={object.isReadOnly ? object.isReadOnly : true}
+                    isReadOnly={
+                      object.isReadOnly === undefined ||
+                      object.isReadOnly === null
+                        ? true
+                        : object.isReadOnly
+                    }
                     defaultOperation={object.defaultOperation}
                   />
                 {:else if object.type === "drawing"}

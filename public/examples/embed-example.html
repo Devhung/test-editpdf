@@ -74,14 +74,17 @@
                 { label: "HH:mm", value: "HH:mm" },
                 { label: "HH:mm", value: "HH:mm" },
                 { label: "MMMM D, YYYY", value: "MMMM D, YYYY" },
+                { label: "MMM DD, YYYY", value: "MMM DD, YYYY" },
               ],
               timezone: "5",
-              defaultFormat: "mm/dd/yyyy HH:mm"
+              defaultFormat: "mm/dd/yyyy HH:mm",
+              isReadOnly: false,
             },
             savePDF: true,
             patient: {
               showInfo: true,
               allowCreate: true,
+              isReadOnly: false,
             },
             allowDropFile: true
           },

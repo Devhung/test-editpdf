@@ -84,16 +84,25 @@ export function formatDate(date, format) {
       "July", "August", "September", "October", "November", "December"
     ];
 
-    // Define format tokens and their replacements
+    const monthNamesShort = monthNames.map(month => month.substring(0, 3));
+
+    // First handle special date formats
+    let result = format;
+
+    // Handle month formats in specific order
+    if (result.includes('MMMM')) {
+      result = result.replace(/MMMM/g, monthNames[targetDate.getMonth()]);
+    } else if (result.includes('MMM')) {
+      result = result.replace(/MMM/g, monthNamesShort[targetDate.getMonth()]);
+    }
+
+    // Then handle the rest of the formats
     const tokens = [
       // Year - both YYYY and yyyy
       { token: "YYYY", value: year, pattern: /(?<![\d])(YYYY|yyyy)(?![\d])/g },
 
-      // Month - full name
-      { token: "MMMM", value: monthNames[targetDate.getMonth()], pattern: /(?<![\d])MMMM(?![\d])/g },
-
-      // Month - both MM and mm (when not for minutes)
-      { token: "MM", value: month, pattern: /(?<![\d:])(MM|mm)(?!:)/g },
+      // Month - numeric (MM)
+      { token: "MM", value: month, pattern: /(?<![:M])(MM|mm)(?![:M])/g },
 
       // Day - double digits (DD/dd)
       { token: "DD", value: day, pattern: /(?<![\d:])(DD|dd)(?![\d:])/g },
@@ -118,12 +127,9 @@ export function formatDate(date, format) {
       { token: "a", value: ampm.toLowerCase(), pattern: /(a|pm|am)(?![\w])/g }
     ];
 
-    // Replace tokens in format string
-    let result = format;
+    // Apply remaining tokens
     tokens.forEach(({ token, value, pattern }) => {
-      // Use custom pattern if provided, otherwise create basic pattern
-      const regex = pattern || new RegExp(token, "g");
-      result = result.replace(regex, value);
+      result = result.replace(pattern, value);
     });
 
     return result;
