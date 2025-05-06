@@ -15,6 +15,8 @@
     readAsImage,
     readAsPDF,
     readAsDataURL,
+    base64toBlob,
+    scaleImage,
   } from "./utils/asyncReader.js";
   import {
     ggID,
@@ -62,6 +64,7 @@
       formats: null,
       timezone: 0,
       defaultFormat: null,
+      isReadOnly: true,
     },
     savePDF: true,
     cancel: false,
@@ -139,7 +142,13 @@
   function addPatientTextField(key) {
     if (selectedPageIndex >= 0) {
       const value = getPatientValue(key);
-      addTextField(value, showTools.patient.isReadOnly, "move", true, key);
+      addTextField(
+        value,
+        showTools.patient.isReadOnly ? showTools.patient.isReadOnly : true,
+        "move",
+        true,
+        key,
+      );
       showPatientDropdown = false;
     }
   }
@@ -227,11 +236,15 @@
           }
 
           // Update tool visibility if provided
-          if (data.tools) {
-            showTools = { ...showTools, ...data.tools };
-            // Handle date formats if provided
-            if (data.tools.addDate && data.tools.addDate.formats) {
-              showTools.addDate.formats = data.tools.addDate.formats;
+          if (data.tools !== undefined) {
+            if (data.tools !== null) {
+              showTools = { ...showTools, ...data.tools };
+              // Handle date formats if provided
+              if (data.tools.addDate && data.tools.addDate.formats) {
+                showTools.addDate.formats = data.tools.addDate.formats;
+              }
+            } else {
+              showTools = data.tools;
             }
           }
 
@@ -346,11 +359,16 @@
 
     loading = true;
     try {
-      const pdf = await readAsPDF(file);
+      // Convert base64 to Blob if input is base64 string
+      const inputFile =
+        typeof file === "string" ? base64toBlob(file, "application/pdf") : file;
+
+      const pdf = await readAsPDF(inputFile);
       if (!pdf) throw new Error("Invalid PDF file");
 
-      pdfFile = file;
-      pdfName = file.name ? file.name : "";
+      // Store the Blob/File
+      pdfFile = inputFile;
+      pdfName = inputFile instanceof File ? inputFile.name : "";
       const numPages = pdf.numPages;
 
       // Initialize arrays
@@ -400,28 +418,41 @@
       const id = genID();
       const { width, height } = img;
 
-      // Scale down large images
+      // Get current page dimensions
+      const pageWidth = pagesDimensions[selectedPageIndex].width;
+      const pageHeight = pagesDimensions[selectedPageIndex].height;
+
+      // Calculate maximum dimensions (80% of page size)
+      const maxWidth = pageWidth * 0.8;
+      const maxHeight = pageHeight * 0.8;
+
+      // Calculate scale while maintaining aspect ratio
       let scale = 1;
-      const limit = 500;
-      if (width > limit) {
-        scale = limit / width;
-      }
-      if (height > limit) {
-        scale = Math.min(scale, limit / height);
+      if (width > maxWidth || height > maxHeight) {
+        const scaleWidth = maxWidth / width;
+        const scaleHeight = maxHeight / height;
+        scale = Math.min(scaleWidth, scaleHeight);
       }
 
-      const scaledWidth = width * scale;
-      const scaledHeight = height * scale;
+      // Calculate final dimensions
+      const scaledWidth = Math.round(width * scale);
+      const scaledHeight = Math.round(height * scale);
+
+      // Scale the image to final dimensions
+      const scaledImg = await scaleImage(img, scaledWidth, scaledHeight);
 
       const object = {
         id,
         type: "image",
         width: scaledWidth,
         height: scaledHeight,
-        x: pagesDimensions[selectedPageIndex].width / 2 - scaledWidth / 2, // Center horizontally
-        y: pagesDimensions[selectedPageIndex].height / 2 - scaledHeight / 2, // Center vertically
-        payload: img,
+        x: pageWidth / 2 - scaledWidth / 2, // Center horizontally
+        y: pageHeight / 2 - scaledHeight / 2, // Center vertically
+        payload: scaledImg, // Use the scaled image
         file,
+        originalWidth: width,
+        originalHeight: height,
+        scale,
       };
       allObjects = allObjects.map((objects, pIndex) =>
         pIndex === selectedPageIndex ? [...objects, object] : objects,
@@ -608,7 +639,7 @@
 
     if (!required) return missingFields;
     let currentLanguage = "en";
-    locale.subscribe(value => {
+    locale.subscribe((value) => {
       currentLanguage = value;
     });
 
@@ -620,17 +651,18 @@
 
     // Check patient identifiers - need only one of the fields
     if (required.patientIdentifiers && required.patientIdentifiers.length > 0) {
-      const hasIdentifier = allObjects.some(pageObjects =>
-        pageObjects.some(obj =>
-          obj.type === "text" &&
-          obj.isPatientField &&
-          required.patientIdentifiers.includes(obj.fieldType)
-        )
+      const hasIdentifier = allObjects.some((pageObjects) =>
+        pageObjects.some(
+          (obj) =>
+            obj.type === "text" &&
+            obj.isPatientField &&
+            required.patientIdentifiers.includes(obj.fieldType),
+        ),
       );
       if (!hasIdentifier) {
         // Add all identifier field names from messages, joined with "or"
         const identifierNames = required.patientIdentifiers
-          .map(field => getMessage(required.messages[field], field))
+          .map((field) => getMessage(required.messages[field], field))
           .join(" " + $_("lblOr") + " ");
         missingFields.push(identifierNames);
       }
@@ -638,21 +670,25 @@
 
     // Check signature
     if (required.signature) {
-      const hasSignature = allObjects.some(pageObjects =>
-        pageObjects.some(obj => obj.type === "drawing")
+      const hasSignature = allObjects.some((pageObjects) =>
+        pageObjects.some((obj) => obj.type === "drawing"),
       );
       if (!hasSignature) {
-        missingFields.push(getMessage(required.messages.signature, "signature"));
+        missingFields.push(
+          getMessage(required.messages.signature, "signature"),
+        );
       }
     }
 
     // Check date signature
     if (required.dateSignature) {
-      const hasDate = allObjects.some(pageObjects =>
-        pageObjects.some(obj => obj.isDateField)
+      const hasDate = allObjects.some((pageObjects) =>
+        pageObjects.some((obj) => obj.isDateField),
       );
       if (!hasDate) {
-        missingFields.push(getMessage(required.messages.dateSignature, "dateSignature"));
+        missingFields.push(
+          getMessage(required.messages.dateSignature, "dateSignature"),
+        );
       }
     }
 
@@ -666,8 +702,10 @@
     // Check required fields before saving
     const missingFields = checkRequiredFields();
     if (missingFields.length > 0) {
-
-      toastMessage = $_("msgRequiredFields").replace("{{fields}}", missingFields.join(", "));
+      toastMessage = $_("msgRequiredFields").replace(
+        "{{fields}}",
+        missingFields.join(", "),
+      );
 
       showToast = true;
 
@@ -675,8 +713,8 @@
       sendMessageToApp({
         type: "MISSING_REQUIRED_FIELDS",
         data: {
-          fields: missingFields
-        }
+          fields: missingFields,
+        },
       });
       return;
     }
@@ -747,6 +785,9 @@
         timezone: timezone,
         rawValue: targetDate.toISOString(), // Store original value with timezone
         defaultOperation: "move",
+        isReadOnly: showTools.addDate.isReadOnly
+          ? showTools.addDate.isReadOnly
+          : true,
       };
 
       allObjects = allObjects.map((objects, pIndex) =>
@@ -769,7 +810,7 @@
   on:dragover|preventDefault
   on:drop|preventDefault={(e) => {
     const files = e.dataTransfer.files;
-    if (!showTools.allowDropFile) {
+    if (showTools && !showTools.allowDropFile) {
       return;
     }
     if (files.length > 0) {
@@ -779,7 +820,8 @@
 />
 <Tailwind />
 <main
-  class="flex flex-col items-center py-16 bg-gray-100 min-h-screen relative"
+  class="flex flex-col items-center  bg-gray-100 min-h-screen relative"
+  class:py-16={showTools != null && showTools != undefined}
 >
   {#if showToast}
     <Toast
@@ -804,267 +846,269 @@
     </div>
   {/if}
 
-  <div
-    class="fixed z-10 top-0 left-0 right-0 h-12 flex justify-center items-center
-      bg-gray-200 border-b border-gray-300"
-  >
-    {#if showTools.choosePDF}
-      <input
-        type="file"
-        name="pdf"
-        id="pdf"
-        on:change={onUploadPDF}
-        class="hidden"
-      />
-      <label
-        style="background-color: #1677ff;"
-        class="whitespace-no-wrap hover:bg-blue-700 text-white
-          font-normal py-1 px-3 md:px-4 rounded mr-3 cursor-pointer md:mr-4"
-        for="pdf"
-      >
-        {$_("btnChoosePDF")}
-      </label>
-    {/if}
-
+  {#if showTools != null && showTools != undefined}
     <div
-      class="relative mr-3 flex h-8 bg-gray-400 rounded-sm
-        md:mr-4"
+      class="fixed z-10 top-0 left-0 right-0 h-12 flex justify-center items-center
+      bg-gray-200 border-b border-gray-300"
     >
-      {#if showTools.addImage}
-        <button
-          class="flex items-center justify-center h-full w-8 hover:bg-gray-500 focus:outline-none
-            cursor-pointer"
-          class:cursor-not-allowed={selectedPageIndex < 0 || saving}
-          class:bg-gray-500={selectedPageIndex < 0 || saving}
-          disabled={selectedPageIndex < 0 || saving}
-          on:click={() => document.getElementById("image").click()}
+      {#if showTools.choosePDF}
+        <input
+          type="file"
+          name="pdf"
+          id="pdf"
+          on:change={onUploadPDF}
+          class="hidden"
+        />
+        <label
+          style="background-color: #1677ff;"
+          class="whitespace-no-wrap hover:bg-blue-700 text-white
+          font-normal py-1 px-3 md:px-4 rounded mr-3 cursor-pointer md:mr-4"
+          for="pdf"
         >
-          <img src="image.svg" alt="An icon for adding images" />
-          <input
-            type="file"
-            id="image"
-            name="image"
-            class="hidden"
-            on:change={onUploadImage}
-            disabled={saving}
-          />
-        </button>
+          {$_("btnChoosePDF")}
+        </label>
       {/if}
-      {#if showTools.addText}
-        <button
-          class="flex items-center justify-center h-full w-8 hover:bg-gray-500 focus:outline-none
-            cursor-pointer"
-          class:cursor-not-allowed={selectedPageIndex < 0 || saving}
-          class:bg-gray-500={selectedPageIndex < 0 || saving}
-          disabled={selectedPageIndex < 0 || saving}
-          on:click={onAddTextField}
-        >
-          <img src="T.png" alt="An icon for adding text" />
-        </button>
-      {/if}
-      {#if showTools.addDrawing}
-        <button
-          class="flex items-center justify-center h-full w-8 hover:bg-gray-500 focus:outline-none
-            cursor-pointer"
-          on:click={onAddDrawing}
-          class:cursor-not-allowed={selectedPageIndex < 0 || saving}
-          class:bg-gray-500={selectedPageIndex < 0 || saving}
-          disabled={selectedPageIndex < 0 || saving}
-        >
-          <img src="signature.png" alt="An icon for adding drawing" />
-        </button>
-      {/if}
-      {#if showTools.addDate.enabled}
-        <button
-          class="flex items-center justify-center h-full w-8 hover:bg-gray-500 focus:outline-none
-            cursor-pointer"
-          on:click={onAddDateField}
-          class:cursor-not-allowed={selectedPageIndex < 0 || saving}
-          class:bg-gray-500={selectedPageIndex < 0 || saving}
-          disabled={selectedPageIndex < 0 || saving}
-        >
-          <img src="calendar.png" alt="An icon for adding date" />
-        </button>
-      {/if}
-      {#if showTools.patient.showInfo}
-        <div class="relative">
+
+      <div
+        class="relative mr-3 flex h-8 bg-gray-400 rounded-sm
+        md:mr-4"
+      >
+        {#if showTools.addImage}
           <button
             class="flex items-center justify-center h-full w-8 hover:bg-gray-500 focus:outline-none
-              cursor-pointer"
+            cursor-pointer"
             class:cursor-not-allowed={selectedPageIndex < 0 || saving}
             class:bg-gray-500={selectedPageIndex < 0 || saving}
             disabled={selectedPageIndex < 0 || saving}
-            draggable="true"
-            on:dragstart={(e) => {
-              e.dataTransfer.setData(
-                "text/plain",
-                JSON.stringify({
-                  type: "patient-info",
-                  data: patientInfo,
-                }),
-              );
-            }}
-            on:click={togglePatientDropdown}
-            on:blur={handlePatientButtonBlur}
+            on:click={() => document.getElementById("image").click()}
           >
-            <img src="person.png" alt="Patient info" />
+            <img src="image.svg" alt="An icon for adding images" />
+            <input
+              type="file"
+              id="image"
+              name="image"
+              class="hidden"
+              on:change={onUploadImage}
+              disabled={saving}
+            />
           </button>
-
-          {#if showPatientDropdown}
-            <div
-              class="patient-dropdown absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20"
+        {/if}
+        {#if showTools.addText}
+          <button
+            class="flex items-center justify-center h-full w-8 hover:bg-gray-500 focus:outline-none
+            cursor-pointer"
+            class:cursor-not-allowed={selectedPageIndex < 0 || saving}
+            class:bg-gray-500={selectedPageIndex < 0 || saving}
+            disabled={selectedPageIndex < 0 || saving}
+            on:click={onAddTextField}
+          >
+            <img src="T.png" alt="An icon for adding text" />
+          </button>
+        {/if}
+        {#if showTools.addDrawing}
+          <button
+            class="flex items-center justify-center h-full w-8 hover:bg-gray-500 focus:outline-none
+            cursor-pointer"
+            on:click={onAddDrawing}
+            class:cursor-not-allowed={selectedPageIndex < 0 || saving}
+            class:bg-gray-500={selectedPageIndex < 0 || saving}
+            disabled={selectedPageIndex < 0 || saving}
+          >
+            <img src="signature.png" alt="An icon for adding drawing" />
+          </button>
+        {/if}
+        {#if showTools.addDate.enabled}
+          <button
+            class="flex items-center justify-center h-full w-8 hover:bg-gray-500 focus:outline-none
+            cursor-pointer"
+            on:click={onAddDateField}
+            class:cursor-not-allowed={selectedPageIndex < 0 || saving}
+            class:bg-gray-500={selectedPageIndex < 0 || saving}
+            disabled={selectedPageIndex < 0 || saving}
+          >
+            <img src="calendar.png" alt="An icon for adding date" />
+          </button>
+        {/if}
+        {#if showTools.patient.showInfo}
+          <div class="relative">
+            <button
+              class="flex items-center justify-center h-full w-8 hover:bg-gray-500 focus:outline-none
+              cursor-pointer"
+              class:cursor-not-allowed={selectedPageIndex < 0 || saving}
+              class:bg-gray-500={selectedPageIndex < 0 || saving}
+              disabled={selectedPageIndex < 0 || saving}
+              draggable="true"
+              on:dragstart={(e) => {
+                e.dataTransfer.setData(
+                  "text/plain",
+                  JSON.stringify({
+                    type: "patient-info",
+                    data: patientInfo,
+                  }),
+                );
+              }}
+              on:click={togglePatientDropdown}
+              on:blur={handlePatientButtonBlur}
             >
-              {#if patientInfo}
-                <div class="px-1 py-1">
-                  {#if patientInfo.emrId}
+              <img src="person.png" alt="Patient info" />
+            </button>
+
+            {#if showPatientDropdown}
+              <div
+                class="patient-dropdown absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20"
+              >
+                {#if patientInfo}
+                  <div class="px-1 py-1">
+                    {#if patientInfo.emrId}
+                      <button
+                        class="block w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
+                        draggable="true"
+                        on:click={() => addPatientTextField("emrId")}
+                      >
+                        <div class="text-xs text-gray-500">
+                          {$_("lblEMRId")}
+                        </div>
+                        <div class="font-medium">
+                          {getPatientValue("emrId")}
+                        </div>
+                      </button>
+                    {/if}
+                    {#if patientInfo.fullName}
+                      <button
+                        class="block w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
+                        draggable="true"
+                        on:click={() => addPatientTextField("fullName")}
+                      >
+                        <div class="text-xs text-gray-500">
+                          {$_("lblFullName")}
+                        </div>
+                        <div class="font-medium">
+                          {getPatientValue("fullName")}
+                        </div>
+                      </button>
+                    {/if}
+                    {#if patientInfo.dateOfBirth}
+                      <button
+                        class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded focus:outline-none"
+                        draggable="true"
+                        on:click={() => addPatientTextField("dateOfBirth")}
+                      >
+                        <div class="text-xs text-gray-500">
+                          {$_("lblDateOfBirth")}
+                        </div>
+                        <div class="font-medium">
+                          {getPatientValue("dateOfBirth")}
+                        </div>
+                      </button>
+                    {/if}
+                    {#if patientInfo.gender}
+                      <button
+                        class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
+                        draggable="true"
+                        on:click={() => addPatientTextField("gender")}
+                      >
+                        <div class="text-xs text-gray-500">
+                          {$_("lblGender")}
+                        </div>
+                        <div class="font-medium">
+                          {getPatientValue("gender")}
+                        </div>
+                      </button>
+                    {/if}
+                    {#if patientInfo.phone}
+                      <button
+                        class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
+                        draggable="true"
+                        on:click={() => addPatientTextField("phone")}
+                      >
+                        <div class="text-xs text-gray-500">
+                          {$_("lblPhone")}
+                        </div>
+                        <div class="font-medium">
+                          {getPatientValue("phone")}
+                        </div>
+                      </button>
+                    {/if}
+                    {#if patientInfo.email}
+                      <button
+                        class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
+                        draggable="true"
+                        on:click={() => addPatientTextField("email")}
+                      >
+                        <div class="text-xs text-gray-500">
+                          {$_("lblEmail")}
+                        </div>
+                        <div class="font-medium">
+                          {getPatientValue("email")}
+                        </div>
+                      </button>
+                    {/if}
+                    {#if patientInfo.address}
+                      <button
+                        class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
+                        draggable="true"
+                        on:click={() => addPatientTextField("address")}
+                      >
+                        <div class="text-xs text-gray-500">
+                          {$_("lblAddress")}
+                        </div>
+                        <div class="font-medium">
+                          {getPatientValue("address")}
+                        </div>
+                      </button>
+                    {/if}
+                  </div>
+                {/if}
+                {#if showTools.patient.allowCreate}
+                  <div class="px-1 py-1">
                     <button
-                      class="block w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
-                      draggable="true"
-                      on:click={() => addPatientTextField("emrId")}
+                      class="block w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded focus:outline-none"
+                      on:click={() => handlePatientAction("create")}
                     >
                       <div class="text-xs text-gray-500">
-                        {$_("lblEMRId")}
+                        {$_("txtCreateNew")}
                       </div>
-                      <div class="font-medium">
-                        {getPatientValue("emrId")}
-                      </div>
+                      <div class="font-medium">{$_("btnCreateNewPatient")}</div>
                     </button>
-                  {/if}
-                  {#if patientInfo.fullName}
-                    <button
-                      class="block w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
-                      draggable="true"
-                      on:click={() => addPatientTextField("fullName")}
-                    >
-                      <div class="text-xs text-gray-500">
-                        {$_("lblFullName")}
-                      </div>
-                      <div class="font-medium">
-                        {getPatientValue("fullName")}
-                      </div>
-                    </button>
-                  {/if}
-                  {#if patientInfo.dateOfBirth}
-                    <button
-                      class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded focus:outline-none"
-                      draggable="true"
-                      on:click={() => addPatientTextField("dateOfBirth")}
-                    >
-                      <div class="text-xs text-gray-500">
-                        {$_("lblDateOfBirth")}
-                      </div>
-                      <div class="font-medium">
-                        {getPatientValue("dateOfBirth")}
-                      </div>
-                    </button>
-                  {/if}
-                  {#if patientInfo.gender}
-                    <button
-                      class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
-                      draggable="true"
-                      on:click={() => addPatientTextField("gender")}
-                    >
-                      <div class="text-xs text-gray-500">
-                        {$_("lblGender")}
-                      </div>
-                      <div class="font-medium">
-                        {getPatientValue("gender")}
-                      </div>
-                    </button>
-                  {/if}
-                  {#if patientInfo.phone}
-                    <button
-                      class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
-                      draggable="true"
-                      on:click={() => addPatientTextField("phone")}
-                    >
-                      <div class="text-xs text-gray-500">
-                        {$_("lblPhone")}
-                      </div>
-                      <div class="font-medium">
-                        {getPatientValue("phone")}
-                      </div>
-                    </button>
-                  {/if}
-                  {#if patientInfo.email}
-                    <button
-                      class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
-                      draggable="true"
-                      on:click={() => addPatientTextField("email")}
-                    >
-                      <div class="text-xs text-gray-500">
-                        {$_("lblEmail")}
-                      </div>
-                      <div class="font-medium">
-                        {getPatientValue("email")}
-                      </div>
-                    </button>
-                  {/if}
-                  {#if patientInfo.address}
-                    <button
-                      class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
-                      draggable="true"
-                      on:click={() => addPatientTextField("address")}
-                    >
-                      <div class="text-xs text-gray-500">
-                        {$_("lblAddress")}
-                      </div>
-                      <div class="font-medium">
-                        {getPatientValue("address")}
-                      </div>
-                    </button>
-                  {/if}
-                </div>
-              {/if}
-              {#if showTools.patient.allowCreate}
-                <div class="px-1 py-1">
-                  <button
-                    class="block w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded focus:outline-none"
-                    on:click={() => handlePatientAction("create")}
-                  >
-                    <div class="text-xs text-gray-500">
-                      {$_("txtCreateNew")}
-                    </div>
-                    <div class="font-medium">{$_("btnCreateNewPatient")}</div>
-                  </button>
-                </div>
-              {/if}
-            </div>
-          {/if}
-        </div>
+                  </div>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/if}
+      </div>
+
+      <div class="justify-center mr-3 md:mr-4 w-full max-w-xs hidden md:flex">
+        <input
+          type="text"
+          disabled
+          class="flex-grow bg-transparent text-center"
+          bind:value={pdfName}
+        />
+      </div>
+      {#if showTools.cancel}
+        <button
+          on:click={() => {
+            sendMessageToApp({ type: "EDITOR_CANCEL" });
+          }}
+          class=" w-20 bg-red-500 hover:bg-red-700 text-white py-1
+        rounded mr-2 focus:outline-none"
+        >
+          {$_("btnCancel")}
+        </button>
+      {/if}
+      {#if showTools.savePDF}
+        <button
+          on:click={savePDF}
+          style="background-color: rgb(22, 119, 255)"
+          class="w-20 text-white font-normal py-1 px-3
+          md:px-4 mr-3 md:mr-4 rounded focus:outline-none flex items-center justify-center"
+        >
+          {$_("btnSave")}
+        </button>
       {/if}
     </div>
-
-    <div class="justify-center mr-3 md:mr-4 w-full max-w-xs hidden md:flex">
-      <input
-        type="text"
-        disabled
-        class="flex-grow bg-transparent text-center"
-        bind:value={pdfName}
-      />
-    </div>
-    {#if showTools.cancel}
-      <button
-        on:click={() => {
-          sendMessageToApp({ type: "EDITOR_CANCEL" });
-        }}
-        class=" w-20 bg-red-500 hover:bg-red-700 text-white py-1
-        rounded mr-2 focus:outline-none"
-      >
-        {$_("btnCancel")}
-      </button>
-    {/if}
-    {#if showTools.savePDF}
-      <button
-        on:click={savePDF}
-        style="background-color: rgb(22, 119, 255)"
-        class="w-20 text-white font-normal py-1 px-3
-          md:px-4 mr-3 md:mr-4 rounded focus:outline-none flex items-center justify-center"
-      >
-        {$_("btnSave")}
-      </button>
-    {/if}
-  </div>
+  {/if}
   {#if addingDrawing}
     <div
       transition:fly={{ y: -200, duration: 500 }}
@@ -1156,7 +1200,7 @@
                     dateFormats={getActiveDateFormats()}
                     isLastPage={pIndex === pages.length - 1}
                     isFirstPage={pIndex === 0}
-                    isReadOnly={object.isReadOnly}
+                    isReadOnly={object.isReadOnly ? object.isReadOnly : true}
                     defaultOperation={object.defaultOperation}
                   />
                 {:else if object.type === "drawing"}
@@ -1186,7 +1230,7 @@
     </div>
   {:else}
     <div class="w-full flex-grow flex flex-col justify-center items-center">
-      {#if !showTools.allowDropFile || loading}
+      {#if (showTools && !showTools.allowDropFile) || loading}
         <Loading text={$_("lblLoading")} />
       {:else}
         <span class="font-bold text-3xl text-gray-500">

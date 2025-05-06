@@ -98,12 +98,14 @@ Dùng để khởi tạo editor với dữ liệu ban đầu. Message này thư�
           }
         ],
         timezone: number,    // Múi giờ (UTC offset theo giờ, ví dụ: 7 cho UTC+7)
-        defaultFormat: string // Định dạng mặc định được chọn (tùy chọn)
+        defaultFormat: string, // Định dạng mặc định được chọn (tùy chọn)
+        isReadOnly: boolean  // Chế độ chỉ đọc cho trường ngày tháng
       },
       savePDF: true,      // Hiển thị nút Save (nút sẽ tự động disable nếu chưa có nội dung chỉnh sửa)
       patient: {
         showInfo: boolean,    // Hiển thị thông tin bệnh nhân
-        allowCreate: boolean  // Cho phép tạo bệnh nhân mới
+        allowCreate: boolean,  // Cho phép tạo bệnh nhân mới
+        isReadOnly: boolean   // Chế độ chỉ đọc cho thông tin bệnh nhân
       },
       allowDropFile: boolean  // Cho phép kéo thả file PDF
     },
@@ -301,12 +303,14 @@ const PDFEditor = ({ initialLanguage = 'vi', onCancel }) => {
                       { label: "MM/DD/YYYY hh:mm A", value: "MM/DD/YYYY hh:mm A" }
                     ],
                     timezone: 7, // UTC+7
-                    defaultFormat: "YYYY-MM-DD HH:mm"
+                    defaultFormat: "YYYY-MM-DD HH:mm",
+                    isReadOnly: false // Cho phép chỉnh sửa trường ngày tháng
                   },
                   savePDF: true,
                   patient: {
                     showInfo: true,
-                    allowCreate: true
+                    allowCreate: true,
+                    isReadOnly: false // Cho phép chỉnh sửa thông tin bệnh nhân
                   },
                   allowDropFile: true
                 },
@@ -461,12 +465,14 @@ const PDFEditorScreen = ({ initialLanguage = 'vi', onCancel }) => {
                   { label: "MM/DD/YYYY hh:mm A", value: "MM/DD/YYYY hh:mm A" }
                 ],
                 timezone: 7, // UTC+7
-                defaultFormat: "YYYY-MM-DD HH:mm"
+                defaultFormat: "YYYY-MM-DD HH:mm",
+                isReadOnly: false // Cho phép chỉnh sửa trường ngày tháng
               },
               savePDF: true,
               patient: {
                 showInfo: true,
-                allowCreate: true
+                allowCreate: true,
+                isReadOnly: false // Cho phép chỉnh sửa thông tin bệnh nhân
               },
               allowDropFile: false // Disable drag & drop on mobile
             },
