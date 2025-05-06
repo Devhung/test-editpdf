@@ -17,5 +17,7 @@
     "lblEmail": "Email",
     "lblAddress": "Endereço",
     "msgRequiredFields": "Por favor, complete os campos obrigatórios: {{fields}}",
-    "lblOr": "ou"
+    "lblOr": "ou",
+    "msgInvalidImageFormat": "Formato de imagem inválido. Por favor, use apenas arquivos JPEG, PNG, GIF ou WEBP.",
+    "msgFileTooLarge": "Arquivo muito grande. O tamanho máximo permitido é de 20MB."
 }

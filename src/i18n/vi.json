@@ -17,5 +17,7 @@
     "lblEmail": "Email",
     "lblAddress": "Địa chỉ",
     "msgRequiredFields": "Vui lòng thêm thông tin cần thiết: {{fields}}",
-    "lblOr": "hoặc"
+    "lblOr": "hoặc",
+    "msgInvalidImageFormat": "Định dạng ảnh không hợp lệ. Vui lòng chỉ sử dụng file JPEG, PNG, GIF hoặc WEBP.",
+    "msgFileTooLarge": "File quá lớn. Kích thước tối đa cho phép là 20MB."
 }

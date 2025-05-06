@@ -9,7 +9,7 @@
   import DrawingCanvas from "./DrawingCanvas.svelte";
   import Loading from "./components/Loading.svelte";
   import prepareAssets, { fetchFont } from "./utils/prepareAssets.js";
-  import { DEFAULT_SCALE } from "./config/constants.js";
+  import { DEFAULT_SCALE, IMAGE_CONFIG } from "./config/constants.js";
   import {
     readAsArrayBuffer,
     readAsImage,
@@ -404,7 +404,25 @@
 
   async function onUploadImage(e) {
     const file = e.target.files[0];
-    if (file && selectedPageIndex >= 0) {
+    if (!file) return;
+
+    // Check file type
+    if (!IMAGE_CONFIG.ALLOWED_TYPES.includes(file.type)) {
+      toastMessage = $_("msgInvalidImageFormat");
+      showToast = true;
+      e.target.value = null;
+      return;
+    }
+
+    // Check file size
+    if (file.size > IMAGE_CONFIG.MAX_FILE_SIZE) {
+      toastMessage = $_("msgFileTooLarge");
+      showToast = true;
+      e.target.value = null;
+      return;
+    }
+
+    if (selectedPageIndex >= 0) {
       addImage(file);
     }
     e.target.value = null;
@@ -422,9 +440,9 @@
       const pageWidth = pagesDimensions[selectedPageIndex].width;
       const pageHeight = pagesDimensions[selectedPageIndex].height;
 
-      // Calculate maximum dimensions (80% of page size)
-      const maxWidth = pageWidth * 0.8;
-      const maxHeight = pageHeight * 0.8;
+      // Calculate maximum dimensions (using configured ratio)
+      const maxWidth = pageWidth * IMAGE_CONFIG.PAGE_SIZE.MAX_RATIO;
+      const maxHeight = pageHeight * IMAGE_CONFIG.PAGE_SIZE.MAX_RATIO;
 
       // Calculate scale while maintaining aspect ratio
       let scale = 1;
@@ -446,9 +464,9 @@
         type: "image",
         width: scaledWidth,
         height: scaledHeight,
-        x: pageWidth / 2 - scaledWidth / 2, // Center horizontally
-        y: pageHeight / 2 - scaledHeight / 2, // Center vertically
-        payload: scaledImg, // Use the scaled image
+        x: pageWidth / 2 - scaledWidth / 2,
+        y: pageHeight / 2 - scaledHeight / 2,
+        payload: scaledImg,
         file,
         originalWidth: width,
         originalHeight: height,
@@ -887,6 +905,7 @@
               type="file"
               id="image"
               name="image"
+              accept={IMAGE_CONFIG.ACCEPT_ATTRIBUTE}
               class="hidden"
               on:change={onUploadImage}
               disabled={saving}
@@ -1001,7 +1020,7 @@
                         </div>
                       </button>
                     {/if}
-                    {#if patientInfo.gender}
+                    {#if patientInfo.gender && patientInfo.gender !== "None"}
                       <button
                         class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded mb-1 focus:outline-none"
                         draggable="true"
