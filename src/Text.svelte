@@ -624,13 +624,11 @@
 <style>
   .operation {
     background-color: rgb(169 201 236);
-    border: 2px solid rgba(22, 119, 255, 0.2);
     border-radius: 4px;
     box-shadow: 0 2px 4px rgba(22, 119, 255, 0.1);
   }
   .operation-edit {
-    background-color: rgba(37, 99, 235, 0.1);
-    border: 1px solid rgba(37, 99, 235, 0.2);
+    background-color: rgb(169 201 236);
     border-radius: 4px;
     padding: 4px 8px;
   }

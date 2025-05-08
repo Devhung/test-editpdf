@@ -1160,18 +1160,18 @@
     </div>
   {/if}
   {#if pages.length}
-    <div class="flex justify-center px-5 w-full md:hidden">
+    <!-- <div class="flex justify-center px-5 w-full md:hidden">
       <input
         type="text"
         disabled
         class="flex-grow bg-transparent"
         bind:value={pdfName}
       />
-    </div>
+    </div> -->
     <div class="w-full">
       {#each pages as page, pIndex (page)}
         <div
-          class="p-5 w-full flex flex-col items-center overflow-hidden"
+          class="p-2 w-full flex flex-col items-center overflow-hidden"
           on:mousedown={() => selectPage(pIndex)}
           on:touchstart={() => selectPage(pIndex)}
         >
