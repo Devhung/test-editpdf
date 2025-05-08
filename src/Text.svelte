@@ -186,6 +186,7 @@
     // Only enter edit mode if not readonly
     if (!isReadOnly) {
       operation = "edit";
+      // Only focus when double clicking to edit
       editable.focus();
     }
   }
@@ -452,9 +453,12 @@
     });
   }
 
-  // Update size change handlers
+  // Update size change handlers to prevent focus
   async function updateSize(newSize) {
     _size = newSize;
+    // Prevent focus and keep current operation
+    const currentOperation = operation;
+
     // Recalculate width after size change
     const lines = extractLines();
     const tempSpan = document.createElement('span');
@@ -477,11 +481,28 @@
 
     const finalWidth = maxWidth + 20;
 
+    // Keep operation state and don't trigger focus
+    operation = currentOperation;
+
     dispatch("update", {
       size: newSize,
       width: finalWidth,
       lines: lines
     });
+  }
+
+  // Update button click handlers
+  function handleSizeButtonClick(increment) {
+    // Prevent default behavior and bubbling
+    event.preventDefault();
+    event.stopPropagation();
+
+    // Update size without changing operation mode
+    const newSize = increment
+      ? Math.min(120, _size + 2)
+      : Math.max(12, _size - 2);
+
+    updateSize(newSize);
   }
 </script>
 
@@ -615,11 +636,9 @@
   {#if isActive}
     <!-- Control buttons on the right -->
     <div class="toolbar-control absolute flex gap-1.5">
-      <!-- Increase size button -->
+      <!-- Update button handlers -->
       <button
-        on:click={() => {
-          updateSize(Math.min(120, _size + 2));
-        }}
+        on:click|preventDefault|stopPropagation={() => handleSizeButtonClick(true)}
         class="w-16 h-16 md:w-8 md:h-8 rounded-full hover:bg-blue-700 active:bg-blue-700
         flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
         style="background-color: rgb(22, 119, 255)"
@@ -628,11 +647,8 @@
         <span class="text-white text-sm font-bold">+</span>
       </button>
 
-      <!-- Decrease size button -->
       <button
-        on:click={() => {
-          updateSize(Math.max(12, _size - 2));
-        }}
+        on:click|preventDefault|stopPropagation={() => handleSizeButtonClick(false)}
         class="w-16 h-16 md:w-8 md:h-8 rounded-full hover:bg-blue-700 active:bg-blue-700
         flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
         style="background-color: rgb(22, 119, 255)"
