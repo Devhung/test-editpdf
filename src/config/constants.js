@@ -1,4 +1,4 @@
-export const DEFAULT_SCALE = 1.5; // Default scale used across the application
+export const DEFAULT_SCALE = 1.6; // Default scale used across the application
 
 // Image configuration
 export const IMAGE_CONFIG = {

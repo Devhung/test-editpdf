@@ -209,9 +209,8 @@
   class="absolute left-0 top-0 select-none"
   style="width: {width + dw}px; height: {(width + dw) / ratio}px; transform:
   translate({x + dx}px, {y + dy}px);"
-  on:click={() => isScaleMode = false}
+  on:click={() => isScaleMode = true}
   on:touchend={handleTap}
-  on:dblclick={() => isScaleMode = true}
 >
   <div
     use:pannable

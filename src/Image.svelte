@@ -278,8 +278,7 @@
   style="width: {width + dw}px; height: {height +
     dh}px; transform: translate({x + dx}px,
   {y + dy}px);"
-  on:click={() => (isScaleMode = false)}
-  on:dblclick={() => (isScaleMode = true)}
+  on:click={() => (isScaleMode = true)}
   on:touchend={handleTap}
 >
   <div

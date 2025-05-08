@@ -613,7 +613,7 @@
 <div
   use:tapout
   on:tapout={onBlur}
-  class="absolute left-0 top-0 select-none cursor-move"
+  class="absolute left-0 top-0 select-none cursor-move p-5"
   class:cursor-text={operation === "edit"}
   class:read-only={isReadOnly}
   class:operation={operation === "edit" || isActive}
