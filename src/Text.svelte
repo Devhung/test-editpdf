@@ -614,13 +614,13 @@
 >
   {#if isActive}
     <!-- Control buttons on the right -->
-    <div class="absolute flex gap-1.5" style="top: -3rem; left: 50%; transform: translateX(-50%); gap: 0.5rem;">
+    <div class="toolbar-control absolute flex gap-1.5">
       <!-- Increase size button -->
       <button
         on:click={() => {
           updateSize(Math.min(120, _size + 2));
         }}
-        class="w-10 h-10 md:w-8 md:h-8 rounded-full hover:bg-blue-700 active:bg-blue-700
+        class="w-16 h-16 md:w-8 md:h-8 rounded-full hover:bg-blue-700 active:bg-blue-700
         flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
         style="background-color: rgb(22, 119, 255)"
         title="Tăng kích thước"
@@ -633,7 +633,7 @@
         on:click={() => {
           updateSize(Math.max(12, _size - 2));
         }}
-        class="w-10 h-10 md:w-8 md:h-8 rounded-full hover:bg-blue-700 active:bg-blue-700
+        class="w-16 h-16 md:w-8 md:h-8 rounded-full hover:bg-blue-700 active:bg-blue-700
         flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
         style="background-color: rgb(22, 119, 255)"
         title="Giảm kích thước"
@@ -644,7 +644,7 @@
       <!-- Delete button -->
       <button
         on:click={onDelete}
-        class="w-10 h-10 md:w-8 md:h-8 rounded-full bg-red-500 hover:bg-red-700 active:bg-red-700
+        class="w-16 h-16 md:w-8 md:h-8 rounded-full bg-red-500 hover:bg-red-700 active:bg-red-700
         flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
         title="Xóa text"
       >
@@ -709,5 +709,15 @@
   }
   button:focus {
     outline: none !important;
+  }
+
+
+  .toolbar-control{
+    top: -3rem; left: 50%; transform: translateX(-50%); gap: 0.5rem;
+  }
+  @media (max-width: 768px) {
+    .toolbar-control{
+      top: -5rem; left: 50%; transform: translateX(-50%); gap: 0.5rem;
+    }
   }
 </style>
