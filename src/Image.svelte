@@ -1,3 +1,5 @@
+<svelte:options immutable={true} />
+
 <script>
   import { onMount, createEventDispatcher } from "svelte";
   import { pannable } from "./utils/pannable.js";
@@ -27,18 +29,21 @@
   let ratio = null;
   let lastMoveTime = 0;
   const THROTTLE_MS = 16;
+  let isScaleMode = false;
+  let lastTap = 0;
+  const DOUBLE_TAP_DELAY = 300; // milliseconds
 
   function isWithinBounds(newX, newY, elementWidth, elementHeight) {
     return (
       newX >= 0 &&
-      (newX + elementWidth) <= pageWidth &&
+      newX + elementWidth <= pageWidth &&
       newY >= 0 &&
-      (newY + elementHeight) <= pageHeight
+      newY + elementHeight <= pageHeight
     );
   }
 
   function isWithinHorizontalBounds(newX, elementWidth) {
-    return newX >= 0 && (newX + elementWidth) <= pageWidth;
+    return newX >= 0 && newX + elementWidth <= pageWidth;
   }
 
   // Helper function to clamp Y position based on page constraints
@@ -67,12 +72,12 @@
     }
     dispatch("update", {
       width: width * scale,
-      height: height * scale
+      height: height * scale,
     });
     if (!["image/jpeg", "image/png"].includes(file.type)) {
-      canvas.toBlob(blob => {
+      canvas.toBlob((blob) => {
         dispatch("update", {
-          file: blob
+          file: blob,
         });
       });
     }
@@ -158,7 +163,7 @@
         const clampedY = clampYPosition(newY, height);
         dispatch("update", {
           x: newX,
-          y: clampedY
+          y: clampedY,
         });
       } else {
         // If outside horizontal bounds, clamp x position and check vertical bounds
@@ -166,7 +171,7 @@
         const clampedY = clampYPosition(newY, height);
         dispatch("update", {
           x: clampedX,
-          y: clampedY
+          y: clampedY,
         });
       }
     } else if (operation === "scale") {
@@ -182,7 +187,7 @@
           x: newX,
           y: clampedY,
           width: newWidth,
-          height: newHeight
+          height: newHeight,
         });
       } else {
         // If scaling would exceed horizontal bounds, clamp width and position
@@ -192,7 +197,7 @@
           x: clampedX,
           y: clampedY,
           width: Math.min(newWidth, pageWidth),
-          height: newHeight
+          height: newHeight,
         });
       }
     }
@@ -210,18 +215,35 @@
       const dwFromDh = (height + dh) * ratio - width;
       return [dwFromDh, dh];
     }
-    return [dw, dhFromDw]
+    return [dw, dhFromDw];
+  }
+  function handleTap(event) {
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTap;
+
+    if (tapLength < DOUBLE_TAP_DELAY && tapLength > 0) {
+      isScaleMode = true;
+      event.preventDefault();
+    } else {
+      isScaleMode = false;
+    }
+    lastTap = currentTime;
   }
   function handlePanStart(event) {
-    dispatch('activate');
+    dispatch("activate");
 
     startX = event.detail.x;
     startY = event.detail.y;
-    if (event.detail.target === event.currentTarget) {
-      return (operation = "move");
+
+    // If in scale mode and touching corner button
+    if (isScaleMode && event.detail.target.dataset.direction) {
+      operation = "scale";
+      direction = event.detail.target.dataset.direction;
+      return;
     }
-    operation = "scale";
-    direction = event.detail.target.dataset.direction;
+
+    // Otherwise move
+    operation = "move";
   }
   function onDelete() {
     dispatch("delete");
@@ -229,7 +251,7 @@
   onMount(render);
   onMount(() => {
     function isShiftKey(key) {
-      return key === 'Shift';
+      return key === "Shift";
     }
     function onKeyDown(e) {
       if (isShiftKey(e.key)) {
@@ -241,14 +263,93 @@
         ratio = null;
       }
     }
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
     return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keyup', onKeyUp);
-    }
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
   });
+
 </script>
+
+<div
+  class="absolute left-0 top-0 select-none"
+  style="width: {width + dw}px; height: {height +
+    dh}px; transform: translate({x + dx}px,
+  {y + dy}px);"
+  on:click={() => (isScaleMode = false)}
+  on:dblclick={() => (isScaleMode = true)}
+  on:touchend={handleTap}
+>
+  <div
+    use:pannable
+    on:panstart={handlePanStart}
+    on:panmove={handlePanMove}
+    on:panend={handlePanEnd}
+    class="absolute w-full h-full"
+    class:cursor-grabbing={operation === "move"}
+    class:operation={isActive}
+  >
+    {#if isActive && isScaleMode}
+      <div
+        data-direction="left"
+        class="resize-border h-full w-1 left-0 top-0 border-l cursor-ew-resize"
+      />
+      <div
+        data-direction="top"
+        class="resize-border w-full h-1 left-0 top-0 border-t cursor-ns-resize"
+      />
+      <div
+        data-direction="bottom"
+        class="resize-border w-full h-1 left-0 bottom-0 border-b cursor-ns-resize"
+      />
+      <div
+        data-direction="right"
+        class="resize-border h-full w-1 right-0 top-0 border-r cursor-ew-resize"
+      />
+      <div
+        data-direction="left-top"
+        class="resize-corner left-0 top-0 cursor-nwse-resize transform
+        -translate-x-1/2 -translate-y-1/2 md:scale-25"
+      />
+      <div
+        data-direction="right-top"
+        class="resize-corner right-0 top-0 cursor-nesw-resize transform
+        translate-x-1/2 -translate-y-1/2 md:scale-25"
+      />
+      <div
+        data-direction="left-bottom"
+        class="resize-corner left-0 bottom-0 cursor-nesw-resize transform
+        -translate-x-1/2 translate-y-1/2 md:scale-25"
+      />
+      <div
+        data-direction="right-bottom"
+        class="resize-corner right-0 bottom-0 cursor-nwse-resize transform
+        translate-x-1/2 translate-y-1/2 md:scale-25"
+      />
+    {/if}
+  </div>
+  {#if isActive && isScaleMode}
+    <div
+      on:click|stopPropagation|preventDefault={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        onDelete();
+      }}
+      on:touchend|stopPropagation|preventDefault={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        onDelete();
+      }}
+      class="btn-delete absolute left-0 right-0 m-auto rounded-full bg-white
+      cursor-pointer transform -translate-y-1/2 md:scale-25"
+    >
+      <img class="w-full h-full pointer-events-none" src="/delete.svg" alt="delete object" />
+    </div>
+  {/if}
+  <canvas class="w-full h-full" bind:this={canvas} />
+</div>
 
 <style>
   .operation {
@@ -258,73 +359,19 @@
     @apply absolute;
   }
   .resize-corner {
-    @apply absolute w-4 h-4 bg-blue-300 rounded-full border-dashed border-gray-600;
+    @apply absolute w-10 h-10 bg-blue-300 rounded-full border-dashed border-gray-600;
   }
   .btn-delete {
-    @apply w-5 h-5
+    @apply w-10 h-10;
+    top: -2rem;
   }
   @media (min-width: 768px) {
     .resize-corner {
-      @apply w-10 h-10;
+      @apply w-12 h-12;
     }
     .btn-delete {
       @apply w-12 h-12;
+      top: -1rem;
     }
   }
 </style>
-
-<svelte:options immutable={true} />
-<div
-  class="absolute left-0 top-0 select-none"
-  style="width: {width + dw}px; height: {height + dh}px; transform: translate({x + dx}px,
-  {y + dy}px);">
-
-  <div
-    use:pannable
-    on:panstart={handlePanStart}
-    on:panmove={handlePanMove}
-    on:panend={handlePanEnd}
-    class="absolute w-full h-full"
-    class:cursor-grabbing={operation === 'move'}
-    class:operation={isActive}>
-    {#if isActive}
-      <div
-        data-direction="left"
-        class="resize-border h-full w-1 left-0 top-0 border-l cursor-ew-resize" />
-      <div
-        data-direction="top"
-        class="resize-border w-full h-1 left-0 top-0 border-t cursor-ns-resize" />
-      <div
-        data-direction="bottom"
-        class="resize-border w-full h-1 left-0 bottom-0 border-b cursor-ns-resize" />
-      <div
-        data-direction="right"
-        class="resize-border h-full w-1 right-0 top-0 border-r cursor-ew-resize" />
-      <div
-        data-direction="left-top"
-        class="resize-corner left-0 top-0 cursor-nwse-resize transform
-        -translate-x-1/2 -translate-y-1/2 md:scale-25" />
-      <div
-        data-direction="right-top"
-        class="resize-corner right-0 top-0 cursor-nesw-resize transform
-        translate-x-1/2 -translate-y-1/2 md:scale-25" />
-      <div
-        data-direction="left-bottom"
-        class="resize-corner left-0 bottom-0 cursor-nesw-resize transform
-        -translate-x-1/2 translate-y-1/2 md:scale-25" />
-      <div
-        data-direction="right-bottom"
-        class="resize-corner right-0 bottom-0 cursor-nwse-resize transform
-        translate-x-1/2 translate-y-1/2 md:scale-25" />
-    {/if}
-  </div>
-  {#if isActive}
-    <div
-      on:click={onDelete}
-      class="btn-delete absolute left-0 top-0 right-0  m-auto rounded-full bg-white
-      cursor-pointer transform -translate-y-1/2 md:scale-25">
-      <img class="w-full h-full" src="/delete.svg" alt="delete object" />
-    </div>
-  {/if}
-  <canvas class="w-full h-full" bind:this={canvas} />
-</div>

@@ -43,6 +43,8 @@
   let clickTimeout = null;
   const THROTTLE_MS = 16;
   const DOUBLE_CLICK_DELAY = 300; // 300ms for double click detection
+  let isScaleMode = false;
+  let direction = "";
 
   // Helper function to clamp Y position based on page constraints
   function clampYPosition(y, elementHeight) {
@@ -69,51 +71,81 @@
   }
 
   function handlePanMove(event) {
-    if (operation !== "move") return; // Only move if in move operation
+    // if (operation === "edit") return; // Prevent moving when editing
+    if (operation !== "move" && operation !== "scale") return;
 
     const currentTime = Date.now();
     if (currentTime - lastMoveTime < THROTTLE_MS) return;
     lastMoveTime = currentTime;
 
-    dx = (event.detail.x - startX) / pageScale;
-    dy = (event.detail.y - startY) / pageScale;
+    const _dx = (event.detail.x - startX) / pageScale;
+    const _dy = (event.detail.y - startY) / pageScale;
+
+    if (operation === "move") {
+      dx = _dx;
+      dy = _dy;
+    } else if (operation === "scale") {
+      // Calculate scale factor based on direction
+      if (direction === "right-top") {
+        const scaleFactor = Math.max(_dx, -_dy);
+        _size = Math.max(12, size + scaleFactor / 2);
+      } else if (direction === "right-bottom") {
+        const scaleFactor = Math.max(_dx, _dy);
+        _size = Math.max(12, size + scaleFactor / 2);
+      }
+    }
   }
 
   function handlePanEnd(event) {
-    if (operation !== "move") return;
-    const newX = x + dx;
-    const newY = y + dy;
-    const elementWidth = editable.clientWidth;
-    const elementHeight = editable.clientHeight;
+    // if (operation === "edit") return; // Prevent pan end when editing
 
-    // If within horizontal bounds, only clamp Y
-    if (isWithinHorizontalBounds(newX, elementWidth)) {
-      const clampedY = clampYPosition(newY, elementHeight);
+    if (operation === "move") {
+      const newX = x + dx;
+      const newY = y + dy;
+      const elementWidth = editable.clientWidth;
+      const elementHeight = editable.clientHeight;
+
+      if (isWithinHorizontalBounds(newX, elementWidth)) {
+        const clampedY = clampYPosition(newY, elementHeight);
+        dispatch("update", {
+          x: newX,
+          y: clampedY,
+        });
+      } else {
+        const clampedX = Math.max(0, Math.min(newX, pageWidth - elementWidth));
+        const clampedY = clampYPosition(newY, elementHeight);
+        dispatch("update", {
+          x: clampedX,
+          y: clampedY,
+        });
+      }
+    } else if (operation === "scale") {
       dispatch("update", {
-        x: newX,
-        y: clampedY,
-      });
-    } else {
-      // If outside horizontal bounds, clamp both X and Y
-      const clampedX = Math.max(0, Math.min(newX, pageWidth - elementWidth));
-      const clampedY = clampYPosition(newY, elementHeight);
-      dispatch("update", {
-        x: clampedX,
-        y: clampedY,
+        size: _size
       });
     }
 
     dx = 0;
     dy = 0;
-    operation = "";
+    direction = "";
+    operation = operation === "edit" ? "edit" : "";
   }
 
   function handlePanStart(event) {
+    // if (operation === "edit") return; // Prevent starting pan when editing
+
     dispatch("activate");
-    if (operation === "edit") return; // Don't start moving if editing
 
     startX = event.detail.x;
     startY = event.detail.y;
+
+    // Check if clicking on a scale handle
+    if (event.detail.target.dataset.direction) {
+      operation = "scale";
+      direction = event.detail.target.dataset.direction;
+      return;
+    }
+
     operation = "move";
   }
 
@@ -122,7 +154,7 @@
   }
 
   function onClick(event) {
-    if (operation === "edit") return; // Ignore clicks when editing
+    //if (operation === "edit") return; // Ignore clicks when editing
 
     if (clickTimeout) {
       // Double click detected
@@ -525,13 +557,56 @@
   on:click={onClick}
 >
   {#if isActive}
-    <div
-      on:click={onDelete}
-      class="absolute w-4 h-4 md:w-3 md:h-3 rounded-full
-      cursor-pointer shadow-md right-0 top-[-4px] transform translate-x-1/2 -translate-y-1/2 z-10"
-    >
-      <img class="w-full h-full" src="/delete.svg" alt="delete object" />
+    <!-- Control buttons on the right -->
+    <div class="absolute flex gap-1.5" style="top: -3rem; left: 50%; transform: translateX(-50%); gap: 0.5rem;">
+      <!-- Increase size button -->
+      <button
+        on:click={() => {
+          _size = Math.min(120, _size + 2);
+          dispatch("update", { size: _size });
+        }}
+        class="w-10 h-10 md:w-8 md:h-8 rounded-full hover:bg-blue-700 active:bg-blue-700
+        flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
+        style="background-color: rgb(22, 119, 255)"
+        title="Tăng kích thước"
+      >
+        <span class="text-white text-sm font-bold">+</span>
+      </button>
+
+      <!-- Decrease size button -->
+      <button
+        on:click={() => {
+          _size = Math.max(12, _size - 2);
+          dispatch("update", { size: _size });
+        }}
+        class="w-10 h-10 md:w-8 md:h-8 rounded-full hover:bg-blue-700 active:bg-blue-700
+        flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
+        style="background-color: rgb(22, 119, 255)"
+        title="Giảm kích thước"
+      >
+        <span class="text-white text-sm font-bold">−</span>
+      </button>
+
+      <!-- Delete button -->
+      <button
+        on:click={onDelete}
+        class="w-10 h-10 md:w-8 md:h-8 rounded-full bg-red-500 hover:bg-red-700 active:bg-red-700
+        flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
+        title="Xóa text"
+      >
+        <span class="text-white text-sm font-bold">x</span>
+      </button>
     </div>
+
+    <!-- Size indicator - only show when adjusting -->
+    {#if operation === "scale"}
+      <div
+        class="absolute right-0 top-0 transform translate-x-full -translate-y-full
+        bg-gray-800 text-white rounded px-2 py-1 text-xs opacity-80"
+      >
+        {Math.round(_size)}px
+      </div>
+    {/if}
   {/if}
   <div
     bind:this={editable}
@@ -542,19 +617,22 @@
     contenteditable="true"
     spellcheck="false"
     class="outline-none whitespace-no-wrap relative"
-    class:pointer-events-none={operation !== "edit"}
+    class:pointer-events-auto={operation === "edit"}
   />
 </div>
 
 <style>
   .operation {
-    background-color: rgba(0, 0, 0, 0.1);
+    background-color: rgb(169 201 236);
+    border: 2px solid rgba(22, 119, 255, 0.2);
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(22, 119, 255, 0.1);
   }
   .operation-edit {
-    background-color: rgba(37, 99, 235, 0.1); /* Light blue background */
-    border: 1px solid rgba(37, 99, 235, 0.2); /* Light blue border */
-    border-radius: 4px; /* Rounded corners */
-    padding: 4px 8px; /* Add some padding */
+    background-color: rgba(37, 99, 235, 0.1);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    border-radius: 4px;
+    padding: 4px 8px;
   }
   .font-family {
     @apply block appearance-none h-6 w-full bg-white pl-2 pr-8 rounded-sm leading-tight;
@@ -567,8 +645,17 @@
     cursor: move !important;
     user-select: none;
   }
-
   .read-only:hover {
     opacity: 1;
+  }
+  button {
+    transition: all 0.15s ease;
+    outline: none !important;
+  }
+  button:active {
+    transform: scale(0.9);
+  }
+  button:focus {
+    outline: none !important;
   }
 </style>

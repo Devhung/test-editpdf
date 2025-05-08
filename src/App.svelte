@@ -27,6 +27,11 @@
   import { save } from "./utils/PDF.js";
   import { _, changeLanguage, locale } from "./i18n";
   import Toast from "./components/Toast.svelte";
+  import PersonIcon from './components/PersonIcon.svelte';
+  import CalendarIcon from './components/CalendarIcon.svelte';
+  import SignatureIcon from './components/SignatureIcon.svelte';
+  import TextIcon from './components/TextIcon.svelte';
+  import ImageIcon from './components/ImageIcon.svelte';
   const genID = ggID();
   let pdfFile;
   let pdfName = "";
@@ -55,7 +60,7 @@
 
   // Tool visibility control
   let showTools = {
-    choosePDF: false,
+    choosePDF: true,
     addImage: true,
     addText: true,
     addDrawing: true,
@@ -905,7 +910,7 @@
             disabled={selectedPageIndex < 0 || saving}
             on:click={() => document.getElementById("image").click()}
           >
-            <img src="image.svg" alt="An icon for adding images" />
+            <ImageIcon size={19} />
             <input
               type="file"
               id="image"
@@ -926,7 +931,7 @@
             disabled={selectedPageIndex < 0 || saving}
             on:click={onAddTextField}
           >
-            <img src="T.png" alt="An icon for adding text" />
+            <TextIcon size={19} />
           </button>
         {/if}
         {#if showTools.addDrawing}
@@ -938,7 +943,7 @@
             class:bg-gray-500={selectedPageIndex < 0 || saving}
             disabled={selectedPageIndex < 0 || saving}
           >
-            <img src="signature.png" alt="An icon for adding drawing" />
+            <SignatureIcon size={19} />
           </button>
         {/if}
         {#if showTools.addDate.enabled}
@@ -950,7 +955,7 @@
             class:bg-gray-500={selectedPageIndex < 0 || saving}
             disabled={selectedPageIndex < 0 || saving}
           >
-            <img src="calendar.png" alt="An icon for adding date" />
+            <CalendarIcon size={19} />
           </button>
         {/if}
         {#if showTools.patient.showInfo}
@@ -974,7 +979,7 @@
               on:click={togglePatientDropdown}
               on:blur={handlePatientButtonBlur}
             >
-              <img src="person.png" alt="Patient info" />
+              <PersonIcon size={19} />
             </button>
 
             {#if showPatientDropdown}

@@ -28,6 +28,9 @@
   const ratio = originWidth / originHeight;
   let lastMoveTime = 0;
   const THROTTLE_MS = 16; // Approximately 60fps
+  let isScaleMode = false;
+  let lastTap = 0;
+  const DOUBLE_TAP_DELAY = 300; // milliseconds
 
   // Function to render SVG with correct viewBox
   async function render() {
@@ -129,6 +132,19 @@
         let d = Math.max(_dx, _dy * ratio);
         dw = d;
       }
+      if (direction === "right-top") {
+        // Keep aspect ratio while scaling from right-top
+        let d = Math.max(_dx, -_dy * ratio);
+        dw = d;
+        dy = -d / ratio;
+      }
+      if (direction === "left-bottom") {
+        // Keep aspect ratio while scaling from left-bottom
+        let d = Math.min(_dx, -_dy * ratio);
+        dx = d;
+        dw = -d;
+        // dy không đổi vì kéo xuống dưới
+      }
     }
   }
 
@@ -148,7 +164,6 @@
     direction = "";
     operation = "";
 
-    // Dispatch updates if any
     if (updates) {
       dispatch("update", updates);
     }
@@ -156,23 +171,35 @@
 
   function handlePanStart(event) {
     dispatch("activate");
-
     startX = event.detail.x;
     startY = event.detail.y;
 
-    // If pan started on the main element, it's a move operation
-    if (event.detail.target === event.currentTarget) {
-      operation = PAN_OPERATIONS.MOVE;
+    // Nếu đang ở mode scale và chạm vào nút góc
+    if (isScaleMode && event.detail.target.dataset.direction) {
+      operation = PAN_OPERATIONS.SCALE;
+      direction = event.detail.target.dataset.direction;
       return;
     }
 
-    // Otherwise it's a scale operation from the handles
-    operation = PAN_OPERATIONS.SCALE;
-    direction = event.detail.target.dataset.direction;
+    // Còn lại là move
+    operation = PAN_OPERATIONS.MOVE;
   }
 
   function onDelete() {
     dispatch("delete");
+  }
+
+  function handleTap(event) {
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTap;
+
+    if (tapLength < DOUBLE_TAP_DELAY && tapLength > 0) {
+      isScaleMode = true;
+      event.preventDefault();
+    } else {
+      isScaleMode = false;
+    }
+    lastTap = currentTime;
   }
 
   onMount(render);
@@ -182,6 +209,9 @@
   class="absolute left-0 top-0 select-none"
   style="width: {width + dw}px; height: {(width + dw) / ratio}px; transform:
   translate({x + dx}px, {y + dy}px);"
+  on:click={() => isScaleMode = false}
+  on:touchend={handleTap}
+  on:dblclick={() => isScaleMode = true}
 >
   <div
     use:pannable
@@ -195,26 +225,45 @@
     class:cursor-grabbing={operation === "move"}
     class:operation={isActive}
   >
-    {#if isActive}
+    {#if isActive && isScaleMode}
       <div
         data-direction="left-top"
-        class="absolute left-0 top-0 w-4 h-4 md:w-10 md:h-10 bg-blue-300 rounded-full
+        class="absolute left-0 top-0 w-10 h-10 md:w-10 md:h-10 bg-blue-300 rounded-full
         cursor-nwse-resize transform -translate-x-1/2 -translate-y-1/2 md:scale-25"
       />
       <div
+        data-direction="right-top"
+        class="absolute right-0 top-0 w-10 h-10 md:w-10 md:h-10 bg-blue-300 rounded-full
+        cursor-nesw-resize transform translate-x-1/2 -translate-y-1/2 md:scale-25"
+      />
+      <div
+        data-direction="left-bottom"
+        class="absolute left-0 bottom-0 w-10 h-10 md:w-10 md:h-10 bg-blue-300 rounded-full
+        cursor-nesw-resize transform -translate-x-1/2 translate-y-1/2 md:scale-25"
+      />
+      <div
         data-direction="right-bottom"
-        class="absolute right-0 bottom-0 w-4 h-4 md:w-10 md:h-10 bg-blue-300 rounded-full
+        class="absolute right-0 bottom-0 w-10 h-10 md:w-10 md:h-10 bg-blue-300 rounded-full
         cursor-nwse-resize transform translate-x-1/2 translate-y-1/2 md:scale-25"
       />
     {/if}
   </div>
-  {#if isActive}
+  {#if isActive && isScaleMode}
     <div
-      on:click={onDelete}
-      class="absolute left-0 top-0 right-0 w-5 h-5 md:w-12 md:h-12 m-auto rounded-full bg-white
+      on:click|stopPropagation|preventDefault={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        onDelete();
+      }}
+      on:touchend|stopPropagation|preventDefault={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        onDelete();
+      }}
+      class="btn-delete absolute left-0 right-0 w-10 h-10 m-auto rounded-full bg-white
       cursor-pointer transform -translate-y-1/2 md:scale-25"
     >
-      <img class="w-full h-full" src="/delete.svg" alt="delete object" />
+      <img class="w-full h-full pointer-events-none" src="/delete.svg" alt="delete object" />
     </div>
   {/if}
   <svg bind:this={svg} width="100%" height="100%">
@@ -232,5 +281,13 @@
 <style>
   .operation {
     background-color: rgba(0, 0, 0, 0.1);
+  }
+  .btn-delete{
+    top: -2rem;
+  }
+  @media (min-width: 768px) {
+    .btn-delete{
+      top: -1rem;
+    }
   }
 </style>
