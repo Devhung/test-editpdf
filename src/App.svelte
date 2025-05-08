@@ -1168,7 +1168,7 @@
         bind:value={pdfName}
       />
     </div> -->
-    <div class="w-full">
+    <div class="w-full md:p-4">
       {#each pages as page, pIndex (page)}
         <div
           class="p-2 w-full flex flex-col items-center overflow-hidden"
