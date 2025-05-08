@@ -7,6 +7,7 @@
   import { tapout } from "./utils/tapout.js";
   import { timeout, formatDate } from "./utils/helper.js";
   import { Fonts } from "./utils/prepareAssets.js";
+  import { _ } from "svelte-i18n";
   export let size;
   export let text;
   export let lineHeight;
@@ -613,7 +614,7 @@
 <div
   use:tapout
   on:tapout={onBlur}
-  class="absolute left-0 top-0 select-none cursor-move p-5"
+  class="absolute left-0 top-0 select-none cursor-move"
   class:cursor-text={operation === "edit"}
   class:read-only={isReadOnly}
   class:operation={operation === "edit" || isActive}
@@ -625,6 +626,7 @@
     {isBold ? 'font-weight: bold;' : ''}
     {isItalic ? 'font-style: italic;' : ''}
     {isUnderline ? 'text-decoration: underline;' : ''}
+    padding:18px;
   "
   use:pannable
   on:panstart={handlePanStart}
@@ -642,9 +644,12 @@
         class="w-16 h-16 md:w-8 md:h-8 rounded-full hover:bg-blue-700 active:bg-blue-700
         flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
         style="background-color: rgb(22, 119, 255)"
-        title="Tăng kích thước"
+        title={$_('increase_size')}
       >
-        <span class="text-white text-2xl font-bold">+</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 md:w-4 md:h-4" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
       </button>
 
       <button
@@ -652,9 +657,11 @@
         class="w-16 h-16 md:w-8 md:h-8 rounded-full hover:bg-blue-700 active:bg-blue-700
         flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
         style="background-color: rgb(22, 119, 255)"
-        title="Giảm kích thước"
+        title={$_('decrease_size')}
       >
-        <span class="text-white text-2xl font-bold">−</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 md:w-4 md:h-4" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
       </button>
 
       <!-- Delete button -->
@@ -662,9 +669,12 @@
         on:click={onDelete}
         class="w-16 h-16 md:w-8 md:h-8 rounded-full bg-red-500 hover:bg-red-700 active:bg-red-700
         flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
-        title="Xóa text"
+        title={$_('delete_text')}
       >
-        <span class="text-white text-2xl font-bold">x</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 md:w-4 md:h-4" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
       </button>
     </div>
 

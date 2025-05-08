@@ -47,9 +47,10 @@ export async function save(pdfFile, objects, name) {
         }
       } else if (object.type === 'text') {
         let { x, y, lines, lineHeight, size, fontFamily, width, isBold, isItalic } = object;
-        // Convert back from scaled dimensions
-        const unscaledX = x / DEFAULT_SCALE;
-        const unscaledY = y / DEFAULT_SCALE;
+        // Convert back from scaled dimensions and add padding for content position
+        const PADDING = 18; // match padding from Text.svelte
+        const unscaledX = (x + PADDING) / DEFAULT_SCALE;
+        const unscaledY = (y + PADDING) / DEFAULT_SCALE;
         const unscaledSize = size / DEFAULT_SCALE;
         const unscaledWidth = width / DEFAULT_SCALE;
         const height = unscaledSize * lineHeight * lines.length;

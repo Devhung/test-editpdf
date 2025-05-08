@@ -21,5 +21,8 @@
     "msgRequiredFields": "Please add the required information: {{fields}}",
     "lblOr": "or",
     "msgInvalidImageFormat": "Invalid image format. Please use JPEG, PNG, GIF or WEBP files only.",
-    "msgFileTooLarge": "File is too large. Maximum size allowed is 20MB."
+    "msgFileTooLarge": "File is too large. Maximum size allowed is 20MB.",
+    "increase_size": "Increase size",
+    "decrease_size": "Decrease size",
+    "delete_text": "Delete text"
 }

@@ -17,5 +17,8 @@
     "lblEmail": "Correo electrónico",
     "lblAddress": "Dirección",
     "msgRequiredFields": "Por favor, complete los campos requeridos: {{fields}}",
-    "lblOr": "o"
+    "lblOr": "o",
+    "increase_size": "Aumentar tamaño",
+    "decrease_size": "Disminuir tamaño",
+    "delete_text": "Eliminar texto"
 }

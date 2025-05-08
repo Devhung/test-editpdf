@@ -865,7 +865,7 @@
 
   {#if saving}
     <div
-      style="background-color: rgba(255, 255, 255, 0.7);"
+      style="background-color: rgba(255, 255, 255, 0.85);"
       class="fixed inset-0 bg-white/30 backdrop-blur-[2px] z-50 flex items-center justify-center"
     >
       <div class="px-8 py-4 flex flex-col items-center">

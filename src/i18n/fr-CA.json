@@ -19,5 +19,8 @@
     "msgRequiredFields": "Veuillez remplir les champs requis: {{fields}}",
     "lblOr": "ou",
     "msgInvalidImageFormat": "Format d'image invalide. Veuillez utiliser uniquement des fichiers JPEG, PNG, GIF ou WEBP.",
-    "msgFileTooLarge": "Fichier trop grand. La taille maximale autorisée est de 20MB."
+    "msgFileTooLarge": "Fichier trop grand. La taille maximale autorisée est de 20MB.",
+    "increase_size": "Augmenter la taille",
+    "decrease_size": "Diminuer la taille",
+    "delete_text": "Supprimer le texte"
 }

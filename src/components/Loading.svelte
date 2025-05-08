@@ -4,35 +4,43 @@
   export let showText = true;
   export let color = "blue"; // blue, white, gray, green, red, yellow, custom
   export let customColor = ""; // Cho phép truyền mã màu tùy chỉnh
+  export let fullscreen = false; // Thêm option để hiển thị fullscreen
 
   const colorConfig = {
     blue: {
       border: "#3B82F6",
-      text: "text-blue-600"
+      text: "text-blue-600",
+      bg: "bg-blue-50"
     },
     white: {
       border: "#FFFFFF",
-      text: "text-white"
+      text: "text-white",
+      bg: "bg-white/10"
     },
     gray: {
       border: "#6B7280",
-      text: "text-gray-600"
+      text: "text-gray-600",
+      bg: "bg-gray-50"
     },
     green: {
       border: "#10B981",
-      text: "text-green-600"
+      text: "text-green-600",
+      bg: "bg-green-50"
     },
     red: {
       border: "#EF4444",
-      text: "text-red-600"
+      text: "text-red-600",
+      bg: "bg-red-50"
     },
     yellow: {
       border: "#F59E0B",
-      text: "text-yellow-600"
+      text: "text-yellow-600",
+      bg: "bg-yellow-50"
     },
     custom: {
       border: customColor,
-      text: "text-gray-600"
+      text: "text-gray-600",
+      bg: "bg-gray-50"
     }
   };
 
@@ -42,51 +50,77 @@
       border: "1px",
       inner: "12px",
       margin: "2px",
-      text: "text-xs"
+      text: "text-xs",
+      padding: "p-2",
+      container: "w-16 h-16"
     },
     small: {
       spinner: "32px",
       border: "2px",
       inner: "24px",
       margin: "4px",
-      text: "text-sm"
+      text: "text-sm",
+      padding: "p-3",
+      container: "w-24 h-24"
     },
     default: {
       spinner: "64px",
       border: "2px",
       inner: "51px",
       margin: "6px",
-      text: "text-base"
+      text: "text-base",
+      padding: "p-4",
+      container: "w-32 h-32"
     },
     large: {
       spinner: "80px",
       border: "3px",
       inner: "64px",
       margin: "8px",
-      text: "text-xl"
+      text: "text-xl",
+      padding: "p-5",
+      container: "w-40 h-40"
     }
   };
 
   $: config = sizeConfig[size] || sizeConfig.default;
   $: currentColor = colorConfig[color] || colorConfig.blue;
   $: if (color === 'custom' && customColor) {
-    currentColor = { border: customColor, text: "text-gray-600" };
+    currentColor = { border: customColor, text: "text-gray-600", bg: "bg-gray-50" };
   }
 </script>
 
-<div class="loading-container">
-  <div class="loading-spinner" style="width: {config.spinner}; height: {config.spinner}">
-    <div style="width: {config.inner}; height: {config.inner}; margin: {config.margin}; border-width: {config.border}; border-color: {currentColor.border} transparent transparent transparent;"></div>
-    <div style="width: {config.inner}; height: {config.inner}; margin: {config.margin}; border-width: {config.border}; border-color: {currentColor.border} transparent transparent transparent;"></div>
-    <div style="width: {config.inner}; height: {config.inner}; margin: {config.margin}; border-width: {config.border}; border-color: {currentColor.border} transparent transparent transparent;"></div>
-    <div style="width: {config.inner}; height: {config.inner}; margin: {config.margin}; border-width: {config.border}; border-color: {currentColor.border} transparent transparent transparent;"></div>
+{#if fullscreen}
+  <div class="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px] z-50">
+    <div class="loading-container {config.padding} {currentColor.bg} rounded-lg shadow-lg">
+      <div class="loading-spinner" style="width: {config.spinner}; height: {config.spinner}">
+        <div style="width: {config.inner}; height: {config.inner}; margin: {config.margin}; border-width: {config.border}; border-color: {currentColor.border} transparent transparent transparent;"></div>
+        <div style="width: {config.inner}; height: {config.inner}; margin: {config.margin}; border-width: {config.border}; border-color: {currentColor.border} transparent transparent transparent;"></div>
+        <div style="width: {config.inner}; height: {config.inner}; margin: {config.margin}; border-width: {config.border}; border-color: {currentColor.border} transparent transparent transparent;"></div>
+        <div style="width: {config.inner}; height: {config.inner}; margin: {config.margin}; border-width: {config.border}; border-color: {currentColor.border} transparent transparent transparent;"></div>
+      </div>
+      {#if showText}
+        <span class="font-normal {config.text} {currentColor.text} mt-2">
+          {text}
+        </span>
+      {/if}
+    </div>
   </div>
-  {#if showText}
-    <span class="font-normal {config.text} {currentColor.text} mt-2">
-      {text}
-    </span>
-  {/if}
-</div>
+{:else}
+  <div class="loading-container {config.padding} {currentColor.bg} rounded-lg shadow-sm">
+    <div class="loading-spinner" style="width: {config.spinner}; height: {config.spinner}">
+      <div style="width: {config.inner}; height: {config.inner}; margin: {config.margin}; border-width: {config.border}; border-color: {currentColor.border} transparent transparent transparent;"></div>
+      <div style="width: {config.inner}; height: {config.inner}; margin: {config.margin}; border-width: {config.border}; border-color: {currentColor.border} transparent transparent transparent;"></div>
+      <div style="width: {config.inner}; height: {config.inner}; margin: {config.margin}; border-width: {config.border}; border-color: {currentColor.border} transparent transparent transparent;"></div>
+      <div style="width: {config.inner}; height: {config.inner}; margin: {config.margin}; border-width: {config.border}; border-color: {currentColor.border} transparent transparent transparent;"></div>
+    </div>
+    {#if showText}
+      <span class="font-normal {config.text} {currentColor.text} mt-2">
+        {text}
+      </span>
+    {/if}
+  </div>
+{/if}
 
 <style>
   .loading-container {
@@ -94,6 +128,9 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    background-color: #a3aebea8;
+    min-width: 10rem;
+    min-height: 10rem;
   }
 
   .loading-spinner {
