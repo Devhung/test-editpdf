@@ -126,7 +126,7 @@
   // Add patient info states
   let showPatientDropdown = false;
   let patientInfo = {
-    emrId: "",
+    emrId: "123123",
     fullName: "",
     dateOfBirth: "",
     gender: "",
@@ -511,6 +511,7 @@
     ctx.font = `${fontSize}px ${currentFont}`;
     const textWidth = ctx.measureText(text).width;
     const textHeight = fontSize * lineHeight;
+    console.log("text width add text", textWidth);
 
     const object = {
       id,

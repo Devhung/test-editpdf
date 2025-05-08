@@ -154,7 +154,8 @@
   }
 
   function onClick(event) {
-    //if (operation === "edit") return; // Ignore clicks when editing
+    // Always activate on click
+    dispatch("activate");
 
     if (clickTimeout) {
       // Double click detected
@@ -174,8 +175,8 @@
     if (!isActive) {
       dispatch("activate");
     }
-    // Single click only activates for moving
-    operation = "move";
+    // Set operation to move by default
+    operation = isReadOnly ? "move" : defaultOperation;
   }
 
   function onDoubleClick(event) {
@@ -331,11 +332,11 @@
     if (!isActive) {
       dispatch("activate");
     }
-    // Set operation based on defaultOperation
-    operation = defaultOperation;
+    // Set operation based on defaultOperation and readonly status
+    operation = isReadOnly ? "move" : defaultOperation;
 
-    // Only focus and select text if in edit mode
-    if (operation === "edit") {
+    // Only focus and select text if in edit mode and not readonly
+    if (operation === "edit" && !isReadOnly) {
       editable.focus();
       // Select all text for easy replacement
       const range = document.createRange();
@@ -418,18 +419,73 @@
     const lines = extractLines();
     const updatedText = lines.join('\n');
 
+    // Calculate new width based on content and font size
+    const tempSpan = document.createElement('span');
+    tempSpan.style.visibility = 'hidden';
+    tempSpan.style.position = 'absolute';
+    tempSpan.style.whiteSpace = 'nowrap';
+    tempSpan.style.fontFamily = _fontFamily;
+    tempSpan.style.fontSize = `${_size}px`;
+    tempSpan.style.fontWeight = isBold ? 'bold' : 'normal';
+    tempSpan.style.fontStyle = isItalic ? 'italic' : 'normal';
+
+    // Find the longest line to determine max width
+    let maxWidth = 0;
+    lines.forEach(line => {
+      tempSpan.textContent = line;
+      document.body.appendChild(tempSpan);
+      const width = tempSpan.offsetWidth;
+      maxWidth = Math.max(maxWidth, width);
+      document.body.removeChild(tempSpan);
+    });
+
+    // Add some padding to the width
+    const finalWidth = maxWidth + 20;
+
     dispatch("update", {
       text: updatedText,
       lines: lines,
-      width: editable.clientWidth,
+      width: finalWidth,
       isBold,
       isItalic,
       isUnderline
     });
   }
+
+  // Update size change handlers
+  async function updateSize(newSize) {
+    _size = newSize;
+    // Recalculate width after size change
+    const lines = extractLines();
+    const tempSpan = document.createElement('span');
+    tempSpan.style.visibility = 'hidden';
+    tempSpan.style.position = 'absolute';
+    tempSpan.style.whiteSpace = 'nowrap';
+    tempSpan.style.fontFamily = _fontFamily;
+    tempSpan.style.fontSize = `${newSize}px`;
+    tempSpan.style.fontWeight = isBold ? 'bold' : 'normal';
+    tempSpan.style.fontStyle = isItalic ? 'italic' : 'normal';
+
+    let maxWidth = 0;
+    lines.forEach(line => {
+      tempSpan.textContent = line;
+      document.body.appendChild(tempSpan);
+      const width = tempSpan.offsetWidth;
+      maxWidth = Math.max(maxWidth, width);
+      document.body.removeChild(tempSpan);
+    });
+
+    const finalWidth = maxWidth + 20;
+
+    dispatch("update", {
+      size: newSize,
+      width: finalWidth,
+      lines: lines
+    });
+  }
 </script>
 
-{#if operation && isActive}
+{#if isActive}
   <div
     style="background-color: rgba(255, 255, 255, 0.7);"
     class="fixed inset-0 backdrop-blur-[2px] z-40"
@@ -562,8 +618,7 @@
       <!-- Increase size button -->
       <button
         on:click={() => {
-          _size = Math.min(120, _size + 2);
-          dispatch("update", { size: _size });
+          updateSize(Math.min(120, _size + 2));
         }}
         class="w-10 h-10 md:w-8 md:h-8 rounded-full hover:bg-blue-700 active:bg-blue-700
         flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
@@ -576,8 +631,7 @@
       <!-- Decrease size button -->
       <button
         on:click={() => {
-          _size = Math.max(12, _size - 2);
-          dispatch("update", { size: _size });
+          updateSize(Math.max(12, _size - 2));
         }}
         class="w-10 h-10 md:w-8 md:h-8 rounded-full hover:bg-blue-700 active:bg-blue-700
         flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
@@ -614,10 +668,10 @@
     on:click={onClick}
     on:keydown={onKeydown}
     on:paste|preventDefault={onPaste}
-    contenteditable="true"
+    contenteditable={!isReadOnly}
     spellcheck="false"
     class="outline-none whitespace-no-wrap relative"
-    class:pointer-events-auto={operation === "edit"}
+    class:pointer-events-auto={operation === "edit" && !isReadOnly}
   />
 </div>
 

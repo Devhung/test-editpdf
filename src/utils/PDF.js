@@ -51,8 +51,7 @@ export async function save(pdfFile, objects, name) {
         const unscaledX = x / DEFAULT_SCALE;
         const unscaledY = y / DEFAULT_SCALE;
         const unscaledSize = size / DEFAULT_SCALE;
-        const unscaledWidth = width;
-
+        const unscaledWidth = width / DEFAULT_SCALE;
         const height = unscaledSize * lineHeight * lines.length;
 
         // Determine the correct font family based on text style
