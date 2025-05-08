@@ -635,7 +635,7 @@
 >
   {#if isActive}
     <!-- Control buttons on the right -->
-    <div class="toolbar-control absolute flex gap-1.5">
+    <div class="toolbar-control absolute flex">
       <!-- Update button handlers -->
       <button
         on:click|preventDefault|stopPropagation={() => handleSizeButtonClick(true)}
@@ -644,7 +644,7 @@
         style="background-color: rgb(22, 119, 255)"
         title="Tăng kích thước"
       >
-        <span class="text-white text-sm font-bold">+</span>
+        <span class="text-white text-2xl font-bold">+</span>
       </button>
 
       <button
@@ -654,7 +654,7 @@
         style="background-color: rgb(22, 119, 255)"
         title="Giảm kích thước"
       >
-        <span class="text-white text-sm font-bold">−</span>
+        <span class="text-white text-2xl font-bold">−</span>
       </button>
 
       <!-- Delete button -->
@@ -664,7 +664,7 @@
         flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
         title="Xóa text"
       >
-        <span class="text-white text-sm font-bold">x</span>
+        <span class="text-white text-2xl font-bold">x</span>
       </button>
     </div>
 
@@ -717,23 +717,20 @@
     opacity: 1;
   }
   button {
-    transition: all 0.15s ease;
     outline: none !important;
   }
-  button:active {
-    transform: scale(0.9);
-  }
+
   button:focus {
     outline: none !important;
   }
 
 
   .toolbar-control{
-    top: -3rem; left: 50%; transform: translateX(-50%); gap: 0.5rem;
+    top: -3rem; left: 50%; transform: translateX(-50%); gap: 1rem;
   }
   @media (max-width: 768px) {
     .toolbar-control{
-      top: -5rem; left: 50%; transform: translateX(-50%); gap: 0.5rem;
+      top: -5rem; left: 50%; transform: translateX(-50%); gap: 1rem;
     }
   }
 </style>

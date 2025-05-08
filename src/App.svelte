@@ -60,7 +60,7 @@
 
   // Tool visibility control
   let showTools = {
-    choosePDF: true,
+    choosePDF: false,
     addImage: true,
     addText: true,
     addDrawing: true,
@@ -126,7 +126,7 @@
   // Add patient info states
   let showPatientDropdown = false;
   let patientInfo = {
-    emrId: "123123",
+    emrId: "",
     fullName: "",
     dateOfBirth: "",
     gender: "",
@@ -511,7 +511,6 @@
     ctx.font = `${fontSize}px ${currentFont}`;
     const textWidth = ctx.measureText(text).width;
     const textHeight = fontSize * lineHeight;
-    console.log("text width add text", textWidth);
 
     const object = {
       id,

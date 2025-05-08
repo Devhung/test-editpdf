@@ -358,7 +358,7 @@
     @apply absolute;
   }
   .resize-corner {
-    @apply absolute w-10 h-10 bg-blue-300 rounded-full border-dashed border-gray-600;
+    @apply absolute w-12 h-12 bg-blue-300 rounded-full border-dashed border-gray-600 p-2;
   }
   .btn-delete {
     @apply w-10 h-10;

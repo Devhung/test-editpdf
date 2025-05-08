@@ -209,7 +209,7 @@
   class="absolute left-0 top-0 select-none"
   style="width: {width + dw}px; height: {(width + dw) / ratio}px; transform:
   translate({x + dx}px, {y + dy}px);"
-  on:click={() => isScaleMode = true}
+  on:click={() => (isScaleMode = true)}
   on:touchend={handleTap}
 >
   <div
@@ -227,22 +227,22 @@
     {#if isActive && isScaleMode}
       <div
         data-direction="left-top"
-        class="absolute left-0 top-0 w-10 h-10 md:w-10 md:h-10 bg-blue-300 rounded-full
+        class="absolute left-0 top-0 w-12 h-12 bg-blue-300 rounded-full p-2
         cursor-nwse-resize transform -translate-x-1/2 -translate-y-1/2 md:scale-25"
       />
       <div
         data-direction="right-top"
-        class="absolute right-0 top-0 w-10 h-10 md:w-10 md:h-10 bg-blue-300 rounded-full
+        class="absolute right-0 top-0 w-12 h-12 bg-blue-300 rounded-full p-2
         cursor-nesw-resize transform translate-x-1/2 -translate-y-1/2 md:scale-25"
       />
       <div
         data-direction="left-bottom"
-        class="absolute left-0 bottom-0 w-10 h-10 md:w-10 md:h-10 bg-blue-300 rounded-full
+        class="absolute left-0 bottom-0 w-12 h-12 bg-blue-300 rounded-full p-2
         cursor-nesw-resize transform -translate-x-1/2 translate-y-1/2 md:scale-25"
       />
       <div
         data-direction="right-bottom"
-        class="absolute right-0 bottom-0 w-10 h-10 md:w-10 md:h-10 bg-blue-300 rounded-full
+        class="absolute right-0 bottom-0 w-12 h-12 bg-blue-300 rounded-full p-2
         cursor-nwse-resize transform translate-x-1/2 translate-y-1/2 md:scale-25"
       />
     {/if}
@@ -262,7 +262,11 @@
       class="btn-delete absolute left-0 right-0 w-10 h-10 m-auto rounded-full bg-white
       cursor-pointer transform -translate-y-1/2 md:scale-25"
     >
-      <img class="w-full h-full pointer-events-none" src="/delete.svg" alt="delete object" />
+      <img
+        class="w-full h-full pointer-events-none"
+        src="/delete.svg"
+        alt="delete object"
+      />
     </div>
   {/if}
   <svg bind:this={svg} width="100%" height="100%">
@@ -281,11 +285,11 @@
   .operation {
     background-color: rgba(0, 0, 0, 0.1);
   }
-  .btn-delete{
+  .btn-delete {
     top: -2rem;
   }
   @media (min-width: 768px) {
-    .btn-delete{
+    .btn-delete {
       top: -1rem;
     }
   }
