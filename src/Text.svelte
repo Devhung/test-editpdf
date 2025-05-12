@@ -122,7 +122,7 @@
       }
     } else if (operation === "scale") {
       dispatch("update", {
-        size: _size
+        size: _size,
       });
     }
 
@@ -151,6 +151,10 @@
   }
 
   function onFocus() {
+    const selection = window.getSelection();
+    if (selection) {
+      selection.removeAllRanges();
+    }
     dispatch("activate");
   }
 
@@ -193,19 +197,20 @@
   }
 
   async function onBlur() {
-    if (operation !== "edit" || operation === "tool") return;
     editable.blur();
     window.getSelection().removeAllRanges();
 
+    if (operation !== "edit" || operation === "tool") return;
+
     const lines = extractLines();
-    const hasContent = lines.some(line => line.trim().length > 0);
+    const hasContent = lines.some((line) => line.trim().length > 0);
 
     if (!hasContent) {
       dispatch("delete");
       return;
     }
 
-    const updatedText = lines.join('\n');
+    const updatedText = lines.join("\n");
 
     dispatch("update", {
       text: updatedText,
@@ -213,7 +218,7 @@
       width: editable.clientWidth,
       isBold,
       isItalic,
-      isUnderline
+      isUnderline,
     });
     operation = "";
   }
@@ -230,18 +235,18 @@
   function onKeydown(e) {
     // Handle text formatting shortcuts
     if (e.ctrlKey || e.metaKey) {
-      switch(e.key.toLowerCase()) {
-        case 'b':
+      switch (e.key.toLowerCase()) {
+        case "b":
           e.preventDefault();
           isBold = !isBold;
           updateTextStyle();
           break;
-        case 'i':
+        case "i":
           e.preventDefault();
           isItalic = !isItalic;
           updateTextStyle();
           break;
-        case 'u':
+        case "u":
           e.preventDefault();
           isUnderline = !isUnderline;
           updateTextStyle();
@@ -250,7 +255,7 @@
     }
 
     // Existing enter key handling
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       const selection = window.getSelection();
       const focusNode = selection.focusNode;
@@ -260,7 +265,7 @@
       if (focusNode === editable) {
         editable.insertBefore(
           document.createElement("br"),
-          childNodes[focusOffset]
+          childNodes[focusOffset],
         );
       } else if (focusNode instanceof HTMLBRElement) {
         editable.insertBefore(document.createElement("br"), focusNode);
@@ -298,7 +303,7 @@
     let weirdNode;
     while (
       (weirdNode = Array.from(editable.childNodes).find(
-        (node) => !["#text", "BR"].includes(node.nodeName)
+        (node) => !["#text", "BR"].includes(node.nodeName),
       ))
     ) {
       editable.removeChild(weirdNode);
@@ -313,18 +318,19 @@
 
   function render() {
     if (isDateField && text) {
-      const defaultFormat = dateFormats && dateFormats.length > 0
-        ? dateFormats[0].value
-        : 'yyyy-MM-dd HH:mm';
+      const defaultFormat =
+        dateFormats && dateFormats.length > 0
+          ? dateFormats[0].value
+          : "yyyy-MM-dd HH:mm";
       editable.innerHTML = formatDate(text, defaultFormat);
     } else {
-      editable.innerHTML = text ? text.replace(/\n/g, '<br>') : '';
+      editable.innerHTML = text ? text.replace(/\n/g, "<br>") : "";
     }
 
     // Apply text styles
-    editable.style.fontWeight = isBold ? 'bold' : 'normal';
-    editable.style.fontStyle = isItalic ? 'italic' : 'normal';
-    editable.style.textDecoration = isUnderline ? 'underline' : 'none';
+    editable.style.fontWeight = isBold ? "bold" : "normal";
+    editable.style.fontStyle = isItalic ? "italic" : "normal";
+    editable.style.textDecoration = isUnderline ? "underline" : "none";
 
     // Auto start editing if this is a new text field
     startEditing();
@@ -365,13 +371,12 @@
     if (lineText) {
       lines.push(lineText);
     }
-    return lines.map(line => line.trim()).filter(line => line.length > 0);
+    return lines.map((line) => line.trim()).filter((line) => line.length > 0);
   }
 
   function onDelete() {
     dispatch("delete");
   }
-
 
   function updateDateFormat(event) {
     const newFormat = event.target.value;
@@ -384,7 +389,7 @@
     dispatch("update", {
       width: editable.clientWidth,
       displayText: formattedDate,
-      format: newFormat
+      format: newFormat,
     });
   }
 
@@ -399,41 +404,41 @@
     });
 
     // Update visual style
-    editable.style.fontWeight = isBold ? 'bold' : 'normal';
-    editable.style.fontStyle = isItalic ? 'italic' : 'normal';
-    editable.style.textDecoration = isUnderline ? 'underline' : 'none';
+    editable.style.fontWeight = isBold ? "bold" : "normal";
+    editable.style.fontStyle = isItalic ? "italic" : "normal";
+    editable.style.textDecoration = isUnderline ? "underline" : "none";
   }
 
   onMount(() => {
     render();
     // Add input event listener for real-time updates
-    editable.addEventListener('input', handleInput);
+    editable.addEventListener("input", handleInput);
 
     // Set initial operation
     operation = defaultOperation;
 
     return () => {
-      editable.removeEventListener('input', handleInput);
+      editable.removeEventListener("input", handleInput);
     };
   });
 
   function handleInput(event) {
     const lines = extractLines();
-    const updatedText = lines.join('\n');
+    const updatedText = lines.join("\n");
 
     // Calculate new width based on content and font size
-    const tempSpan = document.createElement('span');
-    tempSpan.style.visibility = 'hidden';
-    tempSpan.style.position = 'absolute';
-    tempSpan.style.whiteSpace = 'nowrap';
+    const tempSpan = document.createElement("span");
+    tempSpan.style.visibility = "hidden";
+    tempSpan.style.position = "absolute";
+    tempSpan.style.whiteSpace = "nowrap";
     tempSpan.style.fontFamily = _fontFamily;
     tempSpan.style.fontSize = `${_size}px`;
-    tempSpan.style.fontWeight = isBold ? 'bold' : 'normal';
-    tempSpan.style.fontStyle = isItalic ? 'italic' : 'normal';
+    tempSpan.style.fontWeight = isBold ? "bold" : "normal";
+    tempSpan.style.fontStyle = isItalic ? "italic" : "normal";
 
     // Find the longest line to determine max width
     let maxWidth = 0;
-    lines.forEach(line => {
+    lines.forEach((line) => {
       tempSpan.textContent = line;
       document.body.appendChild(tempSpan);
       const width = tempSpan.offsetWidth;
@@ -450,7 +455,7 @@
       width: finalWidth,
       isBold,
       isItalic,
-      isUnderline
+      isUnderline,
     });
   }
 
@@ -462,17 +467,17 @@
 
     // Recalculate width after size change
     const lines = extractLines();
-    const tempSpan = document.createElement('span');
-    tempSpan.style.visibility = 'hidden';
-    tempSpan.style.position = 'absolute';
-    tempSpan.style.whiteSpace = 'nowrap';
+    const tempSpan = document.createElement("span");
+    tempSpan.style.visibility = "hidden";
+    tempSpan.style.position = "absolute";
+    tempSpan.style.whiteSpace = "nowrap";
     tempSpan.style.fontFamily = _fontFamily;
     tempSpan.style.fontSize = `${newSize}px`;
-    tempSpan.style.fontWeight = isBold ? 'bold' : 'normal';
-    tempSpan.style.fontStyle = isItalic ? 'italic' : 'normal';
+    tempSpan.style.fontWeight = isBold ? "bold" : "normal";
+    tempSpan.style.fontStyle = isItalic ? "italic" : "normal";
 
     let maxWidth = 0;
-    lines.forEach(line => {
+    lines.forEach((line) => {
       tempSpan.textContent = line;
       document.body.appendChild(tempSpan);
       const width = tempSpan.offsetWidth;
@@ -488,7 +493,7 @@
     dispatch("update", {
       size: newSize,
       width: finalWidth,
-      lines: lines
+      lines: lines,
     });
   }
 
@@ -543,7 +548,7 @@
           bind:value={_size}
         />
       </div>
-      <div class="mr-2 flex items-center min-w-5 ">
+      <div class="mr-2 flex items-center min-w-5">
         <img src="/text-family.svg" class="w-4 mr-2" alt="Font family" />
         <div class="relative w-32 md:w-40">
           <select
@@ -576,10 +581,7 @@
         <div class="mr-2 flex items-center min-w-10">
           <img src="/calendar.png" class="w-4 mr-2" alt="Date format" />
           <div class="relative w-[10rem] md:w-48">
-            <select
-              on:change={updateDateFormat}
-              class="font-family"
-            >
+            <select on:change={updateDateFormat} class="font-family">
               {#each dateFormats as format}
                 <option value={format.value}>{format.label}</option>
               {/each}
@@ -640,26 +642,46 @@
     <div class="toolbar-control absolute flex">
       <!-- Update button handlers -->
       <button
-        on:click|preventDefault|stopPropagation={() => handleSizeButtonClick(true)}
+        on:click|preventDefault|stopPropagation={() =>
+          handleSizeButtonClick(true)}
         class="w-16 h-16 md:w-8 md:h-8 rounded-full hover:bg-blue-700 active:bg-blue-700
         flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
         style="background-color: rgb(22, 119, 255)"
-        title={$_('increase_size')}
+        title={$_("increase_size")}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 md:w-4 md:h-4" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="w-6 h-6 md:w-4 md:h-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="white"
+          stroke-width="3.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <line x1="12" y1="5" x2="12" y2="19"></line>
           <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
       </button>
 
       <button
-        on:click|preventDefault|stopPropagation={() => handleSizeButtonClick(false)}
+        on:click|preventDefault|stopPropagation={() =>
+          handleSizeButtonClick(false)}
         class="w-16 h-16 md:w-8 md:h-8 rounded-full hover:bg-blue-700 active:bg-blue-700
         flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
         style="background-color: rgb(22, 119, 255)"
-        title={$_('decrease_size')}
+        title={$_("decrease_size")}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 md:w-4 md:h-4" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="w-6 h-6 md:w-4 md:h-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="white"
+          stroke-width="3.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
       </button>
@@ -669,9 +691,18 @@
         on:click={onDelete}
         class="w-16 h-16 md:w-8 md:h-8 rounded-full bg-red-500 hover:bg-red-700 active:bg-red-700
         flex items-center justify-center cursor-pointer shadow-md focus:outline-none"
-        title={$_('delete_text')}
+        title={$_("delete_text")}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 md:w-4 md:h-4" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="w-6 h-6 md:w-4 md:h-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="white"
+          stroke-width="3.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
@@ -734,13 +765,34 @@
     outline: none !important;
   }
 
+  /* Prevent iOS context menu */
+  [contenteditable] {
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-modify: read-write;
+    -webkit-text-size-adjust: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
 
-  .toolbar-control{
-    top: -3rem; left: 50%; transform: translateX(-50%); gap: 1rem;
+  [contenteditable]:focus {
+    user-select: text;
+    -webkit-user-select: text;
+    outline: none;
+  }
+
+  .toolbar-control {
+    top: -3rem;
+    left: 50%;
+    transform: translateX(-50%);
+    gap: 1rem;
   }
   @media (max-width: 768px) {
-    .toolbar-control{
-      top: -5rem; left: 50%; transform: translateX(-50%); gap: 1rem;
+    .toolbar-control {
+      top: -5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      gap: 1rem;
     }
   }
 </style>
