@@ -546,6 +546,7 @@
           step="1"
           class="h-6 w-12 text-center flex-shrink-0 rounded-sm"
           bind:value={_size}
+          on:change={(e) => updateSize(parseInt(e.target.value))}
         />
       </div>
       <div class="mr-2 flex items-center min-w-5">
