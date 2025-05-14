@@ -60,7 +60,7 @@
 
   // Tool visibility control
   let showTools = {
-    choosePDF: false,
+    choosePDF: true,
     addImage: true,
     addText: true,
     addDrawing: true,
@@ -126,8 +126,8 @@
   // Add patient info states
   let showPatientDropdown = false;
   let patientInfo = {
-    emrId: "",
-    fullName: "",
+    emrId: "123",
+    fullName: "123123",
     dateOfBirth: "",
     gender: "",
     phone: "",

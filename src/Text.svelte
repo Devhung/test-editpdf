@@ -191,7 +191,7 @@
     // Only enter edit mode if not readonly
     if (!isReadOnly) {
       operation = "edit";
-      // Only focus when double clicking to edit
+      // Only focus when double clicking to edit and not readonly
       editable.focus();
     }
   }
@@ -224,6 +224,12 @@
   }
 
   async function onPaste(e) {
+    // Prevent paste when readonly
+    if (isReadOnly) {
+      e.preventDefault();
+      return;
+    }
+
     // get text only
     const pastedText = e.clipboardData.getData("text");
     document.execCommand("insertHTML", false, pastedText);
@@ -233,6 +239,12 @@
   }
 
   function onKeydown(e) {
+    // Prevent keydown when readonly
+    if (isReadOnly) {
+      e.preventDefault();
+      return;
+    }
+
     // Handle text formatting shortcuts
     if (e.ctrlKey || e.metaKey) {
       switch (e.key.toLowerCase()) {
@@ -423,6 +435,12 @@
   });
 
   function handleInput(event) {
+    // Prevent input when readonly
+    if (isReadOnly) {
+      event.preventDefault();
+      return;
+    }
+
     const lines = extractLines();
     const updatedText = lines.join("\n");
 
@@ -730,6 +748,7 @@
     spellcheck="false"
     class="outline-none whitespace-no-wrap relative"
     class:pointer-events-auto={operation === "edit" && !isReadOnly}
+    style={isReadOnly ? "-webkit-user-select: none; user-select: none;" : ""}
   />
 </div>
 
@@ -768,10 +787,8 @@
 
   /* Prevent iOS context menu */
   [contenteditable] {
-    -webkit-user-select: none;
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
-    -webkit-user-modify: read-write;
     -webkit-text-size-adjust: 100%;
     -webkit-overflow-scrolling: touch;
   }
